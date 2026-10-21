@@ -1,0 +1,542 @@
+blueprint:
+  name: Actionable Mobile Notification
+  description: >-
+    Sends a notification to a Home Assistant Companion app (Android or iOS)
+    with up to three buttons, each running its own actions. Optionally waits
+    for a reply with a timeout, runs timeout actions, clears the notification
+    and returns the result to the caller as a response variable.
+  domain: script
+  homeassistant:
+    min_version: 2024.10.0
+  source_url: https://github.com/gorlix/Home-Assistant-Calendar-Alarm/blob/main/actionable-notification.yaml
+  input:
+    target:
+      name: Target
+      icon: mdi:cellphone
+      input:
+        notify_device:
+          name: Device
+          description: Phone or tablet running the Home Assistant Companion app.
+          selector:
+            device:
+              filter:
+                - integration: mobile_app
+        notify_service_override:
+          name: Notify service (optional)
+          description: >-
+            Leave empty to use the device's default service. Set it only if
+            your service name differs, e.g. notify.mobile_app_my_phone.
+          default: ""
+          selector:
+            text:
+
+    content:
+      name: Content
+      icon: mdi:message-text
+      input:
+        default_title:
+          name: Title
+          default: ""
+          selector:
+            text:
+        default_message:
+          name: Message
+          description: Android supports basic HTML formatting.
+          default: "Notification from Home Assistant"
+          selector:
+            text:
+              multiline: true
+        subtitle:
+          name: Subtitle
+          description: Shown as subtitle on iOS and as subject on Android.
+          default: ""
+          selector:
+            text:
+        default_link:
+          name: Link on tap
+          description: >-
+            Opened when the notification is tapped, e.g. /lovelace/home,
+            entityId:light.kitchen, app://com.example.app or https://example.com.
+          default: ""
+          selector:
+            text:
+        default_camera:
+          name: Camera snapshot
+          description: Attach a snapshot of this camera.
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: camera
+        default_image_url:
+          name: Image URL
+          description: Attach an image from a URL. Ignored if a camera is set.
+          default: ""
+          selector:
+            text:
+              type: url
+
+    buttons:
+      name: Buttons
+      icon: mdi:gesture-tap-button
+      description: Leave a button title empty to hide that button.
+      input:
+        button_1_title:
+          name: Button 1 - Title
+          default: "OK"
+          selector:
+            text:
+        button_1_actions:
+          name: Button 1 - Actions
+          default: []
+          selector:
+            action: {}
+        button_1_link:
+          name: Button 1 - Link (optional)
+          description: >-
+            On Android a button with a link only opens the link: it does not
+            run its actions and does not stop the timeout.
+          default: ""
+          selector:
+            text:
+        button_2_title:
+          name: Button 2 - Title
+          default: "Cancel"
+          selector:
+            text:
+        button_2_actions:
+          name: Button 2 - Actions
+          default: []
+          selector:
+            action: {}
+        button_2_link:
+          name: Button 2 - Link (optional)
+          default: ""
+          selector:
+            text:
+        button_3_title:
+          name: Button 3 - Title
+          default: ""
+          selector:
+            text:
+        button_3_actions:
+          name: Button 3 - Actions
+          default: []
+          selector:
+            action: {}
+        button_3_link:
+          name: Button 3 - Link (optional)
+          default: ""
+          selector:
+            text:
+        destructive_button:
+          name: Red button (iOS)
+          description: Show one button in red, for destructive actions.
+          default: none
+          selector:
+            select:
+              options:
+                - label: None
+                  value: none
+                - label: Button 1
+                  value: "1"
+                - label: Button 2
+                  value: "2"
+                - label: Button 3
+                  value: "3"
+        require_unlock:
+          name: Require unlock (iOS)
+          description: The phone must be unlocked to press a button.
+          default: false
+          selector:
+            boolean: {}
+
+    response:
+      name: Waiting for a reply
+      icon: mdi:timer-sand
+      input:
+        timeout_enabled:
+          name: Use a timeout
+          description: If off, the script waits until a button is pressed or it runs again.
+          default: true
+          selector:
+            boolean: {}
+        default_timeout:
+          name: Timeout
+          default:
+            hours: 0
+            minutes: 15
+            seconds: 0
+          selector:
+            duration: {}
+        timeout_actions:
+          name: Timeout actions
+          description: Run when nobody replies in time.
+          default: []
+          selector:
+            action: {}
+        dismiss_as_timeout:
+          name: Swiping away counts as timeout (Android)
+          description: Run the timeout actions as soon as the notification is dismissed.
+          default: false
+          selector:
+            boolean: {}
+        clear_on_timeout:
+          name: Clear notification on timeout
+          default: true
+          selector:
+            boolean: {}
+
+    delivery:
+      name: Delivery
+      icon: mdi:send
+      collapsed: true
+      input:
+        channel:
+          name: Channel (Android)
+          description: >-
+            Android fixes a channel's sound and importance the first time it
+            is used. To change them later, use a new channel name.
+          default: "General"
+          selector:
+            text:
+        importance:
+          name: Importance (Android)
+          default: default
+          selector:
+            select:
+              options:
+                - label: High, sound and pop-up
+                  value: high
+                - label: Default, sound
+                  value: default
+                - label: Low, silent
+                  value: low
+                - label: Min, silent and hidden from status bar
+                  value: min
+        high_priority:
+          name: Deliver immediately (Android)
+          description: Sends with high priority and no time-to-live, so a sleeping phone gets it right away.
+          default: true
+          selector:
+            boolean: {}
+        persistent:
+          name: Cannot be swiped away (Android)
+          description: Only works together with a tag, which this blueprint always sets.
+          default: false
+          selector:
+            boolean: {}
+        visibility:
+          name: Lock screen visibility (Android)
+          default: private
+          selector:
+            select:
+              options:
+                - label: Public, always show content
+                  value: public
+                - label: Private, follow phone settings
+                  value: private
+                - label: Secret, hide on lock screen
+                  value: secret
+        android_icon:
+          name: Status bar icon (Android)
+          default: ""
+          selector:
+            icon: {}
+        android_color:
+          name: Icon color (Android)
+          description: Leave empty for the default color.
+          default: []
+          selector:
+            color_rgb: {}
+        car_ui:
+          name: Show on Android Auto
+          default: false
+          selector:
+            boolean: {}
+        interruption_level:
+          name: Interruption level (iOS)
+          default: active
+          selector:
+            select:
+              options:
+                - label: Passive, silent
+                  value: passive
+                - label: Active, default
+                  value: active
+                - label: Time sensitive, breaks through Focus
+                  value: time-sensitive
+                - label: Critical, breaks through Focus and mute
+                  value: critical
+        group:
+          name: Group
+          description: Notifications with the same group are stacked together.
+          default: ""
+          selector:
+            text:
+        custom_tag:
+          name: Tag
+          description: >-
+            Leave empty for a unique tag per run. A fixed tag makes new
+            notifications replace the previous one.
+          default: ""
+          selector:
+            text:
+
+mode: parallel
+max: 20
+
+fields:
+  title:
+    name: Title
+    description: Overrides the title set in the blueprint.
+    selector:
+      text:
+  message:
+    name: Message
+    description: Overrides the message set in the blueprint.
+    selector:
+      text:
+        multiline: true
+  device:
+    name: Device
+    description: Overrides the target device.
+    selector:
+      device:
+        filter:
+          - integration: mobile_app
+  link:
+    name: Link on tap
+    description: Overrides the link opened on tap.
+    selector:
+      text:
+  camera:
+    name: Camera snapshot
+    description: Overrides the camera attachment.
+    selector:
+      entity:
+        filter:
+          - domain: camera
+  image_url:
+    name: Image URL
+    description: Overrides the image attachment.
+    selector:
+      text:
+  timeout:
+    name: Timeout
+    description: Overrides the timeout, as a duration or a number of seconds.
+    selector:
+      duration: {}
+
+sequence:
+  - alias: Load inputs and fields
+    variables:
+      input_device: !input notify_device
+      input_service: !input notify_service_override
+      input_title: !input default_title
+      input_message: !input default_message
+      input_link: !input default_link
+      input_camera: !input default_camera
+      input_image_url: !input default_image_url
+      input_timeout: !input default_timeout
+      subtitle: !input subtitle
+      timeout_enabled: !input timeout_enabled
+      dismiss_as_timeout: !input dismiss_as_timeout
+      clear_on_timeout: !input clear_on_timeout
+      destructive_button: !input destructive_button
+      require_unlock: !input require_unlock
+      channel: !input channel
+      importance: !input importance
+      high_priority: !input high_priority
+      persistent: !input persistent
+      visibility: !input visibility
+      android_icon: !input android_icon
+      android_color: !input android_color
+      car_ui: !input car_ui
+      interruption_level: !input interruption_level
+      group: !input group
+      custom_tag: !input custom_tag
+      buttons_raw:
+        - title: !input button_1_title
+          link: !input button_1_link
+        - title: !input button_2_title
+          link: !input button_2_link
+        - title: !input button_3_title
+          link: !input button_3_link
+
+  - alias: Resolve final values
+    variables:
+      notify_device: "{{ device if device is defined and device else input_device }}"
+      notify_service: >-
+        {% if input_service | trim %}
+          {{ input_service | trim }}
+        {% else %}
+          notify.mobile_app_{{ device_attr(notify_device, 'name') | slugify }}
+        {% endif %}
+      is_apple: "{{ 'apple' in (device_attr(notify_device, 'manufacturer') or '') | lower }}"
+      final_title: "{{ title if title is defined and title else input_title }}"
+      final_message: "{{ message if message is defined and message else input_message }}"
+      final_link: "{{ link if link is defined and link else input_link }}"
+      final_camera: "{{ camera if camera is defined and camera else input_camera }}"
+      final_image_url: "{{ image_url if image_url is defined and image_url else input_image_url }}"
+      # Accept a duration dict (from the selector) or a plain number of seconds
+      timeout_seconds: >-
+        {% set t = timeout if timeout is defined and timeout not in ['', none] else input_timeout %}
+        {% if t is mapping %}
+          {{ (t.get('days', 0) | int) * 86400 + (t.get('hours', 0) | int) * 3600
+             + (t.get('minutes', 0) | int) * 60 + (t.get('seconds', 0) | int) }}
+        {% elif t is number %}
+          {{ t | int }}
+        {% else %}
+          {{ (as_timedelta(t | string) or as_timedelta('0')).total_seconds() | int }}
+        {% endif %}
+      tag: "{{ custom_tag if custom_tag else 'actionable_' ~ context.id }}"
+      button_ids:
+        - "{{ 'BUTTON_1_' ~ context.id }}"
+        - "{{ 'BUTTON_2_' ~ context.id }}"
+        - "{{ 'BUTTON_3_' ~ context.id }}"
+
+  - alias: Build notification payload
+    variables:
+      buttons: >-
+        {% set ns = namespace(list=[]) %}
+        {% for b in buttons_raw %}
+          {% if b.title | trim %}
+            {% set link = b.link | trim %}
+            {# Android link buttons must use the special 'URI' action #}
+            {% set btn = {'title': b.title, 'action': 'URI' if (link and not is_apple) else button_ids[loop.index0]} %}
+            {% if link %}{% set btn = dict(btn, uri=link) %}{% endif %}
+            {% if is_apple and destructive_button == loop.index | string %}{% set btn = dict(btn, destructive=true) %}{% endif %}
+            {% if is_apple and require_unlock %}{% set btn = dict(btn, authenticationRequired=true) %}{% endif %}
+            {% set ns.list = ns.list + [btn] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.list }}
+      waits_for_reply: >-
+        {{ buttons | rejectattr('action', 'eq', 'URI') | list | count > 0 or timeout_enabled }}
+      payload: >-
+        {% set d = {'tag': tag} %}
+        {% if buttons %}{% set d = dict(d, actions=buttons) %}{% endif %}
+        {% if group %}{% set d = dict(d, group=group) %}{% endif %}
+        {% if is_apple %}
+          {% if subtitle %}{% set d = dict(d, subtitle=subtitle) %}{% endif %}
+          {% if final_link %}{% set d = dict(d, url=final_link) %}{% endif %}
+          {% if final_camera %}{% set d = dict(d, entity_id=final_camera) %}
+          {% elif final_image_url %}{% set d = dict(d, attachment={'url': final_image_url}) %}{% endif %}
+          {% set d = dict(d, push={'interruption-level': interruption_level}) %}
+        {% else %}
+          {% if subtitle %}{% set d = dict(d, subject=subtitle) %}{% endif %}
+          {% if final_link %}{% set d = dict(d, clickAction=final_link) %}{% endif %}
+          {% if final_camera %}{% set d = dict(d, image='/api/camera_proxy/' ~ final_camera) %}
+          {% elif final_image_url %}{% set d = dict(d, image=final_image_url) %}{% endif %}
+          {% if channel %}{% set d = dict(d, channel=channel) %}{% endif %}
+          {% set d = dict(d, importance=importance, visibility=visibility) %}
+          {% if high_priority %}{% set d = dict(d, priority='high', ttl=0) %}{% endif %}
+          {% if persistent %}{% set d = dict(d, persistent=true) %}{% endif %}
+          {% if android_icon %}{% set d = dict(d, notification_icon=android_icon) %}{% endif %}
+          {% if android_color | count == 3 %}
+            {% set d = dict(d, color='#%02x%02x%02x' | format(android_color[0], android_color[1], android_color[2])) %}
+          {% endif %}
+          {% if car_ui %}{% set d = dict(d, car_ui=true) %}{% endif %}
+        {% endif %}
+        {{ d }}
+
+  - alias: Send notification
+    action: "{{ notify_service }}"
+    data:
+      title: "{{ final_title }}"
+      message: "{{ final_message }}"
+      data: "{{ payload }}"
+
+  - alias: Stop if no reply is expected
+    if:
+      - alias: Nothing to wait for
+        condition: template
+        value_template: "{{ not waits_for_reply }}"
+    then:
+      - variables:
+          result:
+            reply: sent
+            tag: "{{ tag }}"
+      - stop: Notification sent
+        response_variable: result
+
+  - alias: Wait for a reply
+    if:
+      - alias: Timeout enabled
+        condition: template
+        value_template: "{{ timeout_enabled }}"
+    then:
+      - alias: Wait with timeout
+        wait_for_trigger: &reply_triggers
+          - trigger: event
+            event_type: mobile_app_notification_action
+            event_data:
+              action: "{{ button_ids[0] }}"
+          - trigger: event
+            event_type: mobile_app_notification_action
+            event_data:
+              action: "{{ button_ids[1] }}"
+          - trigger: event
+            event_type: mobile_app_notification_action
+            event_data:
+              action: "{{ button_ids[2] }}"
+          - trigger: event
+            event_type: mobile_app_notification_cleared
+            event_data:
+              tag: "{{ tag }}"
+        timeout:
+          seconds: "{{ timeout_seconds }}"
+        continue_on_timeout: true
+    else:
+      - alias: Wait without timeout
+        wait_for_trigger: *reply_triggers
+
+  - alias: Read the reply
+    variables:
+      reply: >-
+        {% if wait.trigger is none %}
+          timeout
+        {% elif wait.trigger.event.event_type == 'mobile_app_notification_cleared' %}
+          dismissed
+        {% elif wait.trigger.event.data.action == button_ids[0] %}
+          button_1
+        {% elif wait.trigger.event.data.action == button_ids[1] %}
+          button_2
+        {% else %}
+          button_3
+        {% endif %}
+      result:
+        reply: "{{ reply }}"
+        tag: "{{ tag }}"
+
+  - alias: Run the matching actions
+    choose:
+      - alias: Button 1 pressed
+        conditions: "{{ reply == 'button_1' }}"
+        sequence: !input button_1_actions
+      - alias: Button 2 pressed
+        conditions: "{{ reply == 'button_2' }}"
+        sequence: !input button_2_actions
+      - alias: Button 3 pressed
+        conditions: "{{ reply == 'button_3' }}"
+        sequence: !input button_3_actions
+      - alias: No reply in time
+        conditions: "{{ reply == 'timeout' or (reply == 'dismissed' and dismiss_as_timeout) }}"
+        sequence: !input timeout_actions
+
+  - alias: Clear notification on timeout
+    if:
+      - alias: Timed out and clearing enabled
+        condition: template
+        value_template: "{{ reply == 'timeout' and clear_on_timeout }}"
+    then:
+      - alias: Send clear_notification
+        action: "{{ notify_service }}"
+        data:
+          message: clear_notification
+          data:
+            tag: "{{ tag }}"
+
+  - stop: Reply received
+    response_variable: result

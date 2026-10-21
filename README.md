@@ -69,6 +69,39 @@ Inputs are grouped into collapsible sections: general settings, Group 1, Group 2
 - **Keep the run time before midnight.** The search window always targets "tomorrow".
 - **Android only.** iOS doesn't let apps create alarms in the Clock app.
 
+## Bonus: Actionable Mobile Notification
+
+The repo also includes a separate **script blueprint**, `actionable-notification.yaml`. It sends a notification with up to three buttons to the Companion app (Android or iOS) and runs different actions depending on the reply.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FHome-Assistant-Calendar-Alarm%2Fblob%2Fmain%2Factionable-notification.yaml)
+
+- **Up to three buttons**, each with its own actions or a link. Leave a title empty to hide a button.
+- **Timeout** with its own actions. It can also clear the notification and treat a swipe-away as no reply.
+- **Attachments**: camera snapshot or image URL.
+- **Android options**: channel, importance, immediate delivery, persistent notification, lock screen visibility, icon and color, Android Auto.
+- **iOS options**: interruption level up to critical, red button, unlock required.
+- **Overridable fields**: `title`, `message`, `device`, `link`, `camera`, `image_url` and `timeout` can be passed when calling the script.
+- **Returns the reply** to the caller: `button_1`, `button_2`, `button_3`, `timeout`, `dismissed` or `sent`.
+
+Example of calling it from an automation and using the reply:
+
+```yaml
+- action: script.actionable_notification
+  data:
+    title: Front door
+    message: Someone rang the bell. Unlock?
+    camera: camera.front_door
+    timeout: 120
+  response_variable: answer
+- if: "{{ answer.reply == 'button_1' }}"
+  then:
+    - action: lock.unlock
+      target:
+        entity_id: lock.front_door
+```
+
+On Android, a button with a link only opens the link: it doesn't run its actions and doesn't stop the timeout. This is a limit of the Companion app.
+
 ## Contributing
 
 Issues and pull requests are welcome. If you have an idea for an improvement, open an issue.
