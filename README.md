@@ -1,13 +1,15 @@
 # Home Assistant Blueprints
 
-Two Home Assistant blueprints for the Companion app: one sets real alarms on your Android phone from your calendar, the other sends notifications with buttons and acts on the reply.
+Home Assistant blueprints for the Companion app: real Android alarms from your calendar, notifications with buttons, and Do Not Disturb you can pause from a notification.
 
 | Blueprint | Type | Import |
 |---|---|---|
 | **[Calendar Alarms](#calendar-alarms)**<br>Sets real alarms on your Android phone, based on your calendar. | Automation | [![Import Calendar Alarms blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FGorlix-Home-Assistant-Blueprint%2Fblob%2Fmain%2Fcalendar-auto-alarm.yaml) |
 | **[Actionable Notification](#actionable-notification)**<br>Sends a notification with up to three buttons and runs actions on the reply. | Script | [![Import Actionable Notification blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FGorlix-Home-Assistant-Blueprint%2Fblob%2Fmain%2Factionable-notification.yaml) |
+| **[Android DND Controller](#android-dnd-controller)**<br>Turns DND on and off from a toggle, with a notification to pause it for a while. | Automation | [![Import Android DND Controller blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FGorlix-Home-Assistant-Blueprint%2Fblob%2Fmain%2Fandroid-dnd-controller.yaml) |
+| **[Android DND Auto Activation](#android-dnd-auto-activation)**<br>Turns the DND toggle on and off based on zones, charging, Wi-Fi and a calendar. | Automation | [![Import Android DND Auto Activation blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FGorlix-Home-Assistant-Blueprint%2Fblob%2Fmain%2Fandroid-dnd-auto-activation.yaml) |
 
-Both blueprints need Home Assistant **2024.10** or later and the [Home Assistant Companion app](https://companion.home-assistant.io/) on your phone. Each one has full documentation inline, shown when you import or set it up.
+All blueprints need Home Assistant **2024.10** or later and the [Home Assistant Companion app](https://companion.home-assistant.io/) on your phone. Each one has full documentation inline, shown when you import or set it up.
 
 ---
 
@@ -172,6 +174,105 @@ Inputs are grouped into collapsible sections.
 - **Swipe-away detection** works only on Android.
 - **Channel importance on Android** is fixed the first time a channel is used. Use a new channel name to change it.
 - **Buttons do nothing?** In *Developer Tools → Events*, listen to `mobile_app_notification_action` and press a button. If no event arrives, the phone can't reach Home Assistant.
+
+---
+
+## Android DND Controller
+
+[![Import Android DND Controller blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FGorlix-Home-Assistant-Blueprint%2Fblob%2Fmain%2Fandroid-dnd-controller.yaml)
+
+Source: [`android-dnd-controller.yaml`](android-dnd-controller.yaml)
+
+Turns Do Not Disturb on your Android phone on and off with a toggle helper, and lets you **pause it for a while** straight from a notification. When the pause ends, DND comes back on by itself. Anything can drive the toggle: a dashboard button, a voice assistant, another automation or [Android DND Auto Activation](#android-dnd-auto-activation).
+
+### Features
+
+- **DND level of your choice**: priority only, alarms only or total silence.
+- **Ringer mode** when DND turns on and off, for example vibrate and normal. Optional.
+- **Pause from the notification**: up to three buttons with their own duration, for example 30 seconds and 10 minutes.
+- **Live countdown** while paused, with a button to resume DND early.
+- **Extra actions** when DND turns on or off, for example a focus mode on your computer. Optional.
+- **Reliable delivery**: commands are sent with high priority, so a phone in Doze mode gets them right away.
+- **Safe with several phones**: button IDs are unique per automation, so instances never react to each other.
+
+### Requirements
+
+1. An **Android** phone with the Companion app.
+2. **Do Not Disturb access** granted to the Companion app (Android Settings → Apps → Special app access → Do Not Disturb access → Home Assistant).
+3. Two helpers, created in *Settings → Devices & services → Helpers*:
+   - a **toggle** (`input_boolean`): the DND switch;
+   - a **timer**: the pause. Turn on *Restore* in its settings, so a pause survives a restart.
+
+### Setup
+
+1. Create the two helpers.
+2. Import the blueprint with the button above and create an automation from it.
+3. Choose the toggle, the timer and your phone.
+4. Turn the toggle on: DND turns on and the notification with the pause buttons appears.
+
+### Configuration
+
+| Section | What you set |
+|---|---|
+| Target | DND switch, pause timer, phone, and optionally a notify service if its name differs from the device name. |
+| Do Not Disturb | DND level, ringer mode when DND turns on and when it turns off. |
+| Pause buttons | Title and duration of up to three pause buttons, title of the resume button. |
+| Notification | Titles and messages while on and while paused (`{time}` becomes the end time), link on tap, channel, importance, icon, cannot be swiped away, keep after tap. |
+| Extra actions | Actions to run when DND turns on and when it turns off, pauses included. |
+
+### Good to know
+
+- **The toggle is the source of truth.** If you change DND by hand on the phone, Home Assistant doesn't know about it.
+- **Pressing a pause button while paused** restarts the pause with the new duration, and the countdown updates.
+- **Turning the toggle off during a pause** cancels the pause, so DND doesn't come back later.
+- **Channel importance on Android** is fixed the first time a channel is used. Use a new channel name to change it.
+
+---
+
+## Android DND Auto Activation
+
+[![Import Android DND Auto Activation blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FGorlix-Home-Assistant-Blueprint%2Fblob%2Fmain%2Fandroid-dnd-auto-activation.yaml)
+
+Source: [`android-dnd-auto-activation.yaml`](android-dnd-auto-activation.yaml)
+
+Turns the DND toggle on and off by itself, based on where you are, whether your phone is charging, your Wi-Fi and a DND calendar. It pairs with [Android DND Controller](#android-dnd-controller): this blueprint decides **when**, the controller does the work on the phone.
+
+### Features
+
+- **Charging in a zone**: switch on when the phone starts charging in one of your zones, for example on your desk at university.
+- **Wi-Fi check**: charging counts only if the phone is not on Wi-Fi. Optional.
+- **Unplugged or left**: switch off when the phone is unplugged in a zone or when you leave all zones.
+- **Entering a zone**: switch on just by arriving. Optional, off by default.
+- **DND calendar**: switch on when an event starts, off when it ends. You can require being in a zone.
+- **Every rule has its own toggle**, and every sensor is optional.
+- **No useless writes**: the toggle changes only when it needs to.
+
+### Requirements
+
+1. The same **toggle** (`input_boolean`) used in Android DND Controller.
+2. A **person** and one or more **zones**.
+3. Optional: the Companion app **charging** sensor, a **Wi-Fi connection** sensor and a **calendar** dedicated to DND events.
+
+### Setup
+
+1. Import the blueprint with the button above and create an automation from it.
+2. Choose the toggle, your person and the zones.
+3. Add the sensors and calendar you want to use, and turn the rules on or off.
+
+### Configuration
+
+| Section | What you set |
+|---|---|
+| Target | DND switch, person, zones. |
+| Sensors | Charging sensor, Wi-Fi sensor and DND calendar, all optional. |
+| Rules | On when charging, off when unplugged, off when leaving, on when entering, calendar rules, require a zone for calendar events. |
+
+### Good to know
+
+- **Rules react to changes.** A restart of Home Assistant doesn't fire them again, and if you are already charging in a zone when you create the automation, nothing happens until the next change.
+- **"In a zone"** means your person is listed in the `persons` attribute of at least one of the chosen zones.
+- **A Wi-Fi sensor that is unavailable** counts as not connected.
+- **Any event on the calendar counts**, so use a calendar dedicated to DND.
 
 ---
 
