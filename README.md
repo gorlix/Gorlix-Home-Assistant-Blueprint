@@ -67,3 +67,7 @@ Because the calendar is the source of truth, **anything that can write to a cale
 ## Contributing
 
 Issues and pull requests are welcome. If you have an idea for an improvement, open an issue.
+
+## License
+
+Released under the [MIT License](LICENSE).
