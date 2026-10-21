@@ -103,7 +103,7 @@ blueprint:
 
         g2_alarm_label:
           name: Alarm label on the phone
-          default: "Emergency"
+          default: "Alarm 2"
           selector:
             text:
               multiline: false
