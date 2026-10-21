@@ -4,8 +4,8 @@ Two Home Assistant blueprints for the Companion app: one sets real alarms on you
 
 | Blueprint | Type | Import |
 |---|---|---|
-| **[Calendar Alarms](#calendar-alarms)**<br>Sets real alarms on your Android phone, based on your calendar. | Automation | [![Import Calendar Alarms blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FHome-Assistant-Calendar-Alarm%2Fblob%2Fmain%2Fcalendar-auto-alarm.yaml) |
-| **[Actionable Notification](#actionable-notification)**<br>Sends a notification with up to three buttons and runs actions on the reply. | Script | [![Import Actionable Notification blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FHome-Assistant-Calendar-Alarm%2Fblob%2Fmain%2Factionable-notification.yaml) |
+| **[Calendar Alarms](#calendar-alarms)**<br>Sets real alarms on your Android phone, based on your calendar. | Automation | [![Import Calendar Alarms blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FGorlix-Home-Assistant-Blueprint%2Fblob%2Fmain%2Fcalendar-auto-alarm.yaml) |
+| **[Actionable Notification](#actionable-notification)**<br>Sends a notification with up to three buttons and runs actions on the reply. | Script | [![Import Actionable Notification blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FGorlix-Home-Assistant-Blueprint%2Fblob%2Fmain%2Factionable-notification.yaml) |
 
 Both blueprints need Home Assistant **2024.10** or later and the [Home Assistant Companion app](https://companion.home-assistant.io/) on your phone. Each one has full documentation inline, shown when you import or set it up.
 
@@ -13,7 +13,7 @@ Both blueprints need Home Assistant **2024.10** or later and the [Home Assistant
 
 ## Calendar Alarms
 
-[![Import Calendar Alarms blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FHome-Assistant-Calendar-Alarm%2Fblob%2Fmain%2Fcalendar-auto-alarm.yaml)
+[![Import Calendar Alarms blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FGorlix-Home-Assistant-Blueprint%2Fblob%2Fmain%2Fcalendar-auto-alarm.yaml)
 
 Source: [`calendar-auto-alarm.yaml`](calendar-auto-alarm.yaml)
 
@@ -84,7 +84,7 @@ Inputs are grouped into collapsible sections: general settings, Group 1, Group 2
 
 ## Actionable Notification
 
-[![Import Actionable Notification blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FHome-Assistant-Calendar-Alarm%2Fblob%2Fmain%2Factionable-notification.yaml)
+[![Import Actionable Notification blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fgorlix%2FGorlix-Home-Assistant-Blueprint%2Fblob%2Fmain%2Factionable-notification.yaml)
 
 Source: [`actionable-notification.yaml`](actionable-notification.yaml)
 

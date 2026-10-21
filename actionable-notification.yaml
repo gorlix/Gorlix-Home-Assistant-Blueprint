@@ -3,7 +3,7 @@ blueprint:
   description: |
     ## Actionable Mobile Notification
 
-    **Version 1.0** | [GitHub](https://github.com/gorlix/Home-Assistant-Calendar-Alarm) | [Report an issue](https://github.com/gorlix/Home-Assistant-Calendar-Alarm/issues)
+    **Version 1.0** | [GitHub](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint) | [Report an issue](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/issues)
 
     Sends a notification to the [Home Assistant Companion app](https://companion.home-assistant.io/)
     with up to three buttons, waits for the reply and runs the matching actions.
@@ -89,7 +89,7 @@ blueprint:
   domain: script
   homeassistant:
     min_version: 2024.10.0
-  source_url: https://github.com/gorlix/Home-Assistant-Calendar-Alarm/blob/main/actionable-notification.yaml
+  source_url: https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/blob/main/actionable-notification.yaml
   input:
     target:
       name: Target

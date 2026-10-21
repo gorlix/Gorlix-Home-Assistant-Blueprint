@@ -3,7 +3,7 @@ blueprint:
   description: |
     ## Advanced Android Alarms from Calendar
 
-    **Version 1.2** | [GitHub](https://github.com/gorlix/Home-Assistant-Calendar-Alarm) | [Report an issue](https://github.com/gorlix/Home-Assistant-Calendar-Alarm/issues)
+    **Version 1.2** | [GitHub](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint) | [Report an issue](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/issues)
 
     Every evening this automation reads tomorrow morning's calendar events and sets
     real alarms in your Android phone's clock app. Nothing opens on the phone and the
@@ -69,7 +69,7 @@ blueprint:
   domain: automation
   homeassistant:
     min_version: 2024.10.0
-  source_url: https://github.com/gorlix/Home-Assistant-Calendar-Alarm/blob/main/calendar-auto-alarm.yaml
+  source_url: https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/blob/main/calendar-auto-alarm.yaml
   input:
     run_time:
       name: Run time
