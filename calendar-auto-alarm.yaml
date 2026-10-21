@@ -63,7 +63,7 @@ blueprint:
 
         g1_alarm_label:
           name: Alarm label on the phone
-          default: "Home Assistant"
+          default: "Alarm 1"
           selector:
             text:
               multiline: false

@@ -44,7 +44,7 @@ Inputs are grouped into collapsible sections: general settings, Group 1, Group 2
 | Event title (Group 1) | `Alarm 1` | Exact title of the event that triggers Group 1. |
 | Number of alarms (Group 1) | `4` | 1 to 10 alarms. |
 | Minutes between alarms (Group 1) | `10` | 1 to 60 minutes. |
-| Alarm label (Group 1) | `Home Assistant` | Label shown in the clock app. |
+| Alarm label (Group 1) | `Alarm 1` | Label shown in the clock app. |
 | Event title (Group 2) | `Alarm 2` | Exact title of the event that triggers Group 2. |
 | Number of alarms (Group 2) | `3` | 1 to 10 alarms. |
 | Minutes between alarms (Group 2) | `10` | 1 to 60 minutes. |
