@@ -3,7 +3,7 @@ blueprint:
   description: |
     ## Advanced Android Alarms from Calendar
 
-    **Version 1.1** | [GitHub](https://github.com/gorlix/Home-Assistant-Calendar-Alarm) | [Report an issue](https://github.com/gorlix/Home-Assistant-Calendar-Alarm/issues)
+    **Version 1.2** | [GitHub](https://github.com/gorlix/Home-Assistant-Calendar-Alarm) | [Report an issue](https://github.com/gorlix/Home-Assistant-Calendar-Alarm/issues)
 
     Every evening this automation reads tomorrow morning's calendar events and sets
     real alarms in your Android phone's clock app. Nothing opens on the phone and the
@@ -60,6 +60,7 @@ blueprint:
     <details>
     <summary>Changelog</summary>
 
+    - **1.2**: Pick the phone from your devices. The notify service is now optional.
     - **1.1**: English input keys, input sections, configurable confirmation
       notification, fixed alarm time calculation, readable traces.
     - **1.0**: First release.
@@ -87,11 +88,22 @@ blueprint:
           filter:
             - domain: calendar
 
+    notify_device:
+      name: Android phone
+      description: Phone running the Home Assistant Companion app, where the alarms are set.
+      default: ""
+      selector:
+        device:
+          filter:
+            - integration: mobile_app
+
     notify_service:
-      name: Android notify service
+      name: Notify service (optional)
       description: >-
-        Notify service of your Android phone, e.g. `notify.mobile_app_your_phone`.
+        Leave empty to use the phone's default service. Set it only if your
+        service name differs from the device name, e.g. `notify.mobile_app_my_phone`.
         You can find it in Developer Tools → Actions by typing `notify.mobile_app`.
+      default: ""
       selector:
         text:
           multiline: false
@@ -234,6 +246,23 @@ actions:
       g2_interval: !input g2_alarm_interval
       g2_label: !input g2_alarm_label
       confirmation_enabled: !input confirmation_enabled
+      input_device: !input notify_device
+      input_service: !input notify_service
+      notify_service: >-
+        {% if input_service | trim %}
+          {{ input_service | trim }}
+        {% elif input_device %}
+          notify.mobile_app_{{ device_attr(input_device, 'name') | slugify }}
+        {% endif %}
+
+  - alias: Stop if no phone is set
+    if:
+      - alias: No phone or notify service
+        condition: template
+        value_template: "{{ not notify_service }}"
+    then:
+      - stop: Set the Android phone or the notify service in the blueprint settings.
+        error: true
 
   - alias: Get tomorrow morning's events
     action: calendar.get_events
@@ -279,7 +308,7 @@ actions:
           count: "{{ g1_count | int }}"
           sequence:
             - alias: Send SET_ALARM intent
-              action: !input notify_service
+              action: "{{ notify_service }}"
               data:
                 message: command_activity
                 data:
@@ -304,7 +333,7 @@ actions:
           count: "{{ g2_count | int }}"
           sequence:
             - alias: Send SET_ALARM intent
-              action: !input notify_service
+              action: "{{ notify_service }}"
               data:
                 message: command_activity
                 data:
@@ -325,7 +354,7 @@ actions:
         value_template: "{{ confirmation_enabled }}"
     then:
       - alias: Send confirmation
-        action: !input notify_service
+        action: "{{ notify_service }}"
         data:
           title: !input confirmation_title
           message: !input confirmation_message

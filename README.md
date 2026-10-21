@@ -39,7 +39,7 @@ Because the calendar is the source of truth, **anything that can write to a cale
 
 1. Import the blueprint with the button above.
 2. Create an automation from it.
-3. Choose your calendar and enter your phone's notify service, for example `notify.mobile_app_your_phone`. You can find it in *Developer Tools → Actions*.
+3. Choose your calendar and your Android phone. Set the notify service only if its name differs from the device name.
 4. Adjust the event titles, alarm counts and intervals to your liking.
 
 ### Configuration
@@ -50,7 +50,8 @@ Inputs are grouped into collapsible sections: general settings, Group 1, Group 2
 |---|---|---|
 | Run time | `23:00` | When the automation checks the calendar. Keep it before midnight. |
 | Calendar | — | Calendar entity to scan. |
-| Android notify service | — | Notify service of your phone, for example `notify.mobile_app_your_phone`. |
+| Android phone | — | Phone with the Companion app, picked from your devices. |
+| Notify service (optional) | — | Only if your service name differs from the device name, for example `notify.mobile_app_my_phone`. |
 | Event title (Group 1) | `Alarm 1` | Exact title of the event that triggers Group 1. |
 | Number of alarms (Group 1) | `4` | 1 to 10 alarms. |
 | Minutes between alarms (Group 1) | `10` | 1 to 60 minutes. |
