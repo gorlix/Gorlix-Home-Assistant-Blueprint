@@ -6,14 +6,14 @@ blueprint:
     min_version: 2024.10.0
   source_url: https://github.com/gorlix/Home-Assistant-Calendar-Alarm/blob/main/calendar-auto-alarm.yaml
   input:
-    orario_esecuzione:
+    run_time:
       name: Run time
       description: Evening time when the automation runs. Keep it before midnight.
       default: "23:00:00"
       selector:
         time: {}
 
-    calendario:
+    calendar:
       name: Calendar
       description: Calendar entity to scan.
       selector:
@@ -21,104 +21,141 @@ blueprint:
           filter:
             - domain: calendar
 
-    dispositivo_android:
+    notify_service:
       name: Android notify service
       description: Notify service of your Android phone, e.g. notify.mobile_app_your_phone
       selector:
         text:
           multiline: false
 
-    # Group 1 settings
-    g1_titolo:
-      name: Event title (Group 1)
-      default: "Alarm 1"
-      selector:
-        text:
-          multiline: false
+    group_1:
+      name: Group 1
+      icon: mdi:alarm
+      input:
+        g1_event_title:
+          name: Event title
+          description: Exact title of the calendar event that triggers this group.
+          default: "Alarm 1"
+          selector:
+            text:
+              multiline: false
 
-    g1_num:
-      name: Number of alarms (Group 1)
-      default: 4
-      selector:
-        number:
-          min: 1
-          max: 10
-          step: 1
-          mode: slider
+        g1_alarm_count:
+          name: Number of alarms
+          default: 4
+          selector:
+            number:
+              min: 1
+              max: 10
+              step: 1
+              mode: slider
 
-    g1_intervallo:
-      name: Minutes between alarms (Group 1)
-      default: 10
-      selector:
-        number:
-          min: 1
-          max: 60
-          step: 1
-          unit_of_measurement: min
-          mode: slider
+        g1_alarm_interval:
+          name: Minutes between alarms
+          default: 10
+          selector:
+            number:
+              min: 1
+              max: 60
+              step: 1
+              unit_of_measurement: min
+              mode: slider
 
-    g1_label:
-      name: Alarm label on the phone (Group 1)
-      default: "Home Assistant"
-      selector:
-        text:
-          multiline: false
+        g1_alarm_label:
+          name: Alarm label on the phone
+          default: "Home Assistant"
+          selector:
+            text:
+              multiline: false
 
-    # Group 2 settings
-    g2_titolo:
-      name: Event title (Group 2)
-      default: "Alarm 2"
-      selector:
-        text:
-          multiline: false
+    group_2:
+      name: Group 2
+      icon: mdi:alarm-multiple
+      input:
+        g2_event_title:
+          name: Event title
+          description: Exact title of the calendar event that triggers this group.
+          default: "Alarm 2"
+          selector:
+            text:
+              multiline: false
 
-    g2_num:
-      name: Number of alarms (Group 2)
-      default: 3
-      selector:
-        number:
-          min: 1
-          max: 10
-          step: 1
-          mode: slider
+        g2_alarm_count:
+          name: Number of alarms
+          default: 3
+          selector:
+            number:
+              min: 1
+              max: 10
+              step: 1
+              mode: slider
 
-    g2_intervallo:
-      name: Minutes between alarms (Group 2)
-      default: 10
-      selector:
-        number:
-          min: 1
-          max: 60
-          step: 1
-          unit_of_measurement: min
-          mode: slider
+        g2_alarm_interval:
+          name: Minutes between alarms
+          default: 10
+          selector:
+            number:
+              min: 1
+              max: 60
+              step: 1
+              unit_of_measurement: min
+              mode: slider
 
-    g2_label:
-      name: Alarm label on the phone (Group 2)
-      default: "Emergency"
-      selector:
-        text:
-          multiline: false
+        g2_alarm_label:
+          name: Alarm label on the phone
+          default: "Emergency"
+          selector:
+            text:
+              multiline: false
+
+    confirmation:
+      name: Confirmation notification
+      icon: mdi:bell-check
+      collapsed: true
+      input:
+        confirmation_enabled:
+          name: Send confirmation
+          description: Send a notification to the phone after the alarms are set.
+          default: true
+          selector:
+            boolean: {}
+
+        confirmation_title:
+          name: Notification title
+          default: "Alarms Set"
+          selector:
+            text:
+              multiline: false
+
+        confirmation_message:
+          name: Notification message
+          default: "Your alarms for tomorrow morning have been set."
+          selector:
+            text:
+              multiline: true
 
 mode: single
 
 triggers:
   - trigger: time
-    at: !input orario_esecuzione
+    at: !input run_time
 
 actions:
-  - variables:
-      cal_entity: !input calendario
-      g1_title: !input g1_titolo
-      g1_count: !input g1_num
-      g1_interval: !input g1_intervallo
-      g1_label: !input g1_label
-      g2_title: !input g2_titolo
-      g2_count: !input g2_num
-      g2_interval: !input g2_intervallo
-      g2_label: !input g2_label
+  - alias: Load inputs
+    variables:
+      cal_entity: !input calendar
+      g1_title: !input g1_event_title
+      g1_count: !input g1_alarm_count
+      g1_interval: !input g1_alarm_interval
+      g1_label: !input g1_alarm_label
+      g2_title: !input g2_event_title
+      g2_count: !input g2_alarm_count
+      g2_interval: !input g2_alarm_interval
+      g2_label: !input g2_alarm_label
+      confirmation_enabled: !input confirmation_enabled
 
-  - action: calendar.get_events
+  - alias: Get tomorrow morning's events
+    action: calendar.get_events
     target:
       entity_id: "{{ cal_entity }}"
     data:
@@ -126,7 +163,8 @@ actions:
       end_date_time: "{{ today_at('12:00') + timedelta(days=1) }}"
     response_variable: tomorrow_events
 
-  - variables:
+  - alias: Find matching events
+    variables:
       g1_start_str: >
         {% set ns = namespace(start=none) %}
         {% for ev in tomorrow_events[cal_entity].events %}
@@ -144,19 +182,23 @@ actions:
         {% endfor %}
         {{ ns.start }}
 
-  - condition: template
+  - alias: Stop if no matching event was found
+    condition: template
     value_template: >-
       {{ g1_start_str not in ['None', '', none] or g2_start_str not in ['None', '', none] }}
 
   - alias: Group 1 alarms
     if:
-      - condition: template
+      - alias: Group 1 event found
+        condition: template
         value_template: "{{ g1_start_str not in ['None', '', none] }}"
     then:
-      - repeat:
+      - alias: Set Group 1 alarms
+        repeat:
           count: "{{ g1_count | int }}"
           sequence:
-            - action: !input dispositivo_android
+            - alias: Send SET_ALARM intent
+              action: !input notify_service
               data:
                 message: command_activity
                 data:
@@ -166,18 +208,22 @@ actions:
                     {% set offset_min = (g1_count | int - repeat.index) * (g1_interval | int) %}
                     {% set alarm_time = as_datetime(g1_start_str).astimezone() - timedelta(minutes=offset_min) %}
                     android.intent.extra.alarm.HOUR:{{ alarm_time.hour }},android.intent.extra.alarm.MINUTES:{{ alarm_time.minute }},android.intent.extra.alarm.SKIP_UI:true,android.intent.extra.alarm.MESSAGE:{{ g1_label }}
-            - delay:
+            - alias: Wait before the next alarm
+              delay:
                 seconds: 2
 
   - alias: Group 2 alarms
     if:
-      - condition: template
+      - alias: Group 2 event found
+        condition: template
         value_template: "{{ g2_start_str not in ['None', '', none] }}"
     then:
-      - repeat:
+      - alias: Set Group 2 alarms
+        repeat:
           count: "{{ g2_count | int }}"
           sequence:
-            - action: !input dispositivo_android
+            - alias: Send SET_ALARM intent
+              action: !input notify_service
               data:
                 message: command_activity
                 data:
@@ -187,11 +233,18 @@ actions:
                     {% set offset_min = (g2_count | int - repeat.index) * (g2_interval | int) %}
                     {% set alarm_time = as_datetime(g2_start_str).astimezone() - timedelta(minutes=offset_min) %}
                     android.intent.extra.alarm.HOUR:{{ alarm_time.hour }},android.intent.extra.alarm.MINUTES:{{ alarm_time.minute }},android.intent.extra.alarm.SKIP_UI:true,android.intent.extra.alarm.MESSAGE:{{ g2_label }}
-            - delay:
+            - alias: Wait before the next alarm
+              delay:
                 seconds: 2
 
-  - action: !input dispositivo_android
-    metadata: {}
-    data:
-      message: Your alarms for tomorrow morning have been set.
-      title: Alarms Set
+  - alias: Confirmation notification
+    if:
+      - alias: Confirmation enabled
+        condition: template
+        value_template: "{{ confirmation_enabled }}"
+    then:
+      - alias: Send confirmation
+        action: !input notify_service
+        data:
+          title: !input confirmation_title
+          message: !input confirmation_message

@@ -14,7 +14,7 @@ Because the calendar is the source of truth, **anything that can write to a cale
 - **Silent.** Alarms are created in the background with `android.intent.extra.alarm.SKIP_UI:true`. The clock app doesn't open and the screen doesn't wake up.
 - **Staggered alarms.** Set how many alarms you want and how far apart. With 4 alarms 10 minutes apart and an event at 07:00, you get 06:30, 06:40, 06:50 and 07:00. The last alarm always matches the event time.
 - **Two independent groups.** For example, `Alarm 1` for a normal morning and `Alarm 2` for mornings you really can't miss. Each group has its own event title, alarm count, interval and label on the phone.
-- **Confirmation notification.** After the alarms are set, you get a notification, so you know before going to sleep that everything is in place.
+- **Confirmation notification.** After the alarms are set, you get a notification, so you know before going to sleep that everything is in place. You can change its title and text, or turn it off.
 
 ## Requirements
 
@@ -34,6 +34,8 @@ Because the calendar is the source of truth, **anything that can write to a cale
 
 ## Configuration
 
+Inputs are grouped into collapsible sections: general settings, Group 1, Group 2 and Confirmation notification.
+
 | Input | Default | Description |
 |---|---|---|
 | Run time | `23:00` | When the automation checks the calendar. Keep it before midnight. |
@@ -47,6 +49,9 @@ Because the calendar is the source of truth, **anything that can write to a cale
 | Number of alarms (Group 2) | `3` | 1 to 10 alarms. |
 | Minutes between alarms (Group 2) | `10` | 1 to 60 minutes. |
 | Alarm label (Group 2) | `Emergency` | Label shown in the clock app. |
+| Send confirmation | `on` | Send a notification after the alarms are set. |
+| Notification title | `Alarms Set` | Title of the confirmation notification. |
+| Notification message | `Your alarms for tomorrow morning have been set.` | Text of the confirmation notification. |
 
 ## How it works
 
