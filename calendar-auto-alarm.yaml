@@ -1,0 +1,197 @@
+blueprint:
+  name: Sveglie Android Avanzate da Calendario
+  description: Fissa sveglie multiple configurabili sul dispositivo Android leggendo gli eventi del giorno successivo.
+  domain: automation
+  input:
+    orario_esecuzione:
+      name: Orario di esecuzione
+      description: Orario serale di avvio dell'automazione.
+      default: "23:00:00"
+      selector:
+        time: {}
+
+    calendario:
+      name: Calendario
+      description: Entità calendario da scansionare.
+      selector:
+        entity:
+          filter:
+            - domain: calendar
+
+    dispositivo_android:
+      name: Servizio di Notifica Android
+      description: Es. notify.mobile_app_pixel_7_pro
+      default: "notify.mobile_app_pixel_7_pro"
+      selector:
+        text:
+          multiline: false
+
+    # Configurazione Gruppo 1
+    g1_titolo:
+      name: Titolo Evento (Gruppo 1)
+      default: "⏰ Sveglia"
+      selector:
+        text:
+          multiline: false
+
+    g1_num:
+      name: Numero di sveglie (Gruppo 1)
+      default: 4
+      selector:
+        number:
+          min: 1
+          max: 10
+          step: 1
+          mode: slider
+
+    g1_intervallo:
+      name: Intervallo tra sveglie in minuti (Gruppo 1)
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 60
+          step: 1
+          unit_of_measurement: min
+          mode: slider
+
+    g1_label:
+      name: Etichetta sul telefono (Gruppo 1)
+      default: "Home Assistant"
+      selector:
+        text:
+          multiline: false
+
+    # Configurazione Gruppo 2
+    g2_titolo:
+      name: Titolo Evento (Gruppo 2)
+      default: "⏰ Sveglia Emergenza"
+      selector:
+        text:
+          multiline: false
+
+    g2_num:
+      name: Numero di sveglie (Gruppo 2)
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 10
+          step: 1
+          mode: slider
+
+    g2_intervallo:
+      name: Intervallo tra sveglie in minuti (Gruppo 2)
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 60
+          step: 1
+          unit_of_measurement: min
+          mode: slider
+
+    g2_label:
+      name: Etichetta sul telefono (Gruppo 2)
+      default: "Emergenza"
+      selector:
+        text:
+          multiline: false
+
+mode: single
+
+trigger:
+  - platform: time
+    at: !input orario_esecuzione
+
+action:
+  - variables:
+      cal_entity: !input calendario
+      g1_title: !input g1_titolo
+      g1_count: !input g1_num
+      g1_interval: !input g1_intervallo
+      g1_label: !input g1_label
+      g2_title: !input g2_titolo
+      g2_count: !input g2_num
+      g2_interval: !input g2_intervallo
+      g2_label: !input g2_label
+
+  - action: calendar.get_events
+    target:
+      entity_id: "{{ cal_entity }}"
+    data:
+      start_date_time: "{{ today_at('00:00') + timedelta(days=1) }}"
+      end_date_time: "{{ today_at('12:00') + timedelta(days=1) }}"
+    response_variable: eventi_domani
+
+  - variables:
+      orario_g1_str: >
+        {% set ns = namespace(start=none) %}
+        {% for ev in eventi_domani[cal_entity].events %}
+          {% if ev.summary == g1_title and ns.start == none %}
+            {% set ns.start = ev.start %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.start }}
+      orario_g2_str: >
+        {% set ns = namespace(start=none) %}
+        {% for ev in eventi_domani[cal_entity].events %}
+          {% if ev.summary == g2_title and ns.start == none %}
+            {% set ns.start = ev.start %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.start }}
+
+  - condition: template
+    value_template: >-
+      {{ orario_g1_str not in ['None', '', none] or orario_g2_str not in ['None', '', none] }}
+
+  - if:
+      - condition: template
+        value_template: "{{ orario_g1_str not in ['None', '', none] }}"
+    then:
+      - variables:
+          orario_base_g1: "{{ as_datetime(orario_g1_str).astimezone() }}"
+      - repeat:
+          count: "{{ g1_count | int }}"
+          sequence:
+            - variables:
+                offset_min: "{{ (g1_count | int - repeat.index) * (g1_interval | int) }}"
+                orario_sveglia: "{{ orario_base_g1 - timedelta(minutes=offset_min) }}"
+            - action: !input dispositivo_android
+              data:
+                message: command_activity
+                data:
+                  intent_action: android.intent.action.SET_ALARM
+                  intent_extras: >-
+                    android.intent.extra.alarm.HOUR:{{ orario_sveglia.hour }},android.intent.extra.alarm.MINUTES:{{ orario_sveglia.minute }},android.intent.extra.alarm.SKIP_UI:true,android.intent.extra.alarm.MESSAGE:{{ g1_label }}
+            - delay:
+                seconds: 2
+
+  - if:
+      - condition: template
+        value_template: "{{ orario_g2_str not in ['None', '', none] }}"
+    then:
+      - variables:
+          orario_base_g2: "{{ as_datetime(orario_g2_str).astimezone() }}"
+      - repeat:
+          count: "{{ g2_count | int }}"
+          sequence:
+            - variables:
+                offset_min: "{{ (g2_count | int - repeat.index) * (g2_interval | int) }}"
+                orario_sveglia_em: "{{ orario_base_g2 - timedelta(minutes=offset_min) }}"
+            - action: !input dispositivo_android
+              data:
+                message: command_activity
+                data:
+                  intent_action: android.intent.action.SET_ALARM
+                  intent_extras: >-
+                    android.intent.extra.alarm.HOUR:{{ orario_sveglia_em.hour }},android.intent.extra.alarm.MINUTES:{{ orario_sveglia_em.minute }},android.intent.extra.alarm.SKIP_UI:true,android.intent.extra.alarm.MESSAGE:{{ g2_label }}
+            - delay:
+                seconds: 2
+
+  - action: !input dispositivo_android
+    metadata: {}
+    data:
+      message: Le sveglie per domani mattina sono state programmate correttamente.
+      title: Sveglie Fissate
