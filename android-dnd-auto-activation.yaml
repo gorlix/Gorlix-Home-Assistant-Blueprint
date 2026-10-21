@@ -1,0 +1,338 @@
+blueprint:
+  name: Android DND Auto Activation
+  description: |
+    ## Android DND Auto Activation
+
+    **Version 1.0** | [GitHub](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint) | [Report an issue](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/issues)
+
+    Turns a toggle helper (the DND switch) on and off by itself, based on where you
+    are, whether your phone is charging, your Wi-Fi and a DND calendar. It pairs with
+    the blueprint *Android DND Controller*, which reads the same switch and
+    does the real work on the phone.
+
+    ### Features
+    - Switch on when the phone starts charging in one of your zones, e.g. while you study.
+    - Optional Wi-Fi check: charging counts only if the phone is **not** on Wi-Fi.
+    - Switch off when the phone is unplugged or when you leave the zones.
+    - Optional: switch on just by entering a zone.
+    - Optional calendar rules: switch on when a DND event starts, off when it ends.
+    - Every rule has its own toggle, and every sensor is optional.
+    - The switch is written only when it needs to change.
+
+    ### Requirements
+    - An **input_boolean** helper (the DND switch). Use the same one in *Android DND Controller*.
+    - A **person** and one or more **zones** (Settings → Areas, labels & zones → Zones).
+    - Optional: a charging sensor of the Companion app (e.g. `binary_sensor.pixel_is_charging`),
+      a Wi-Fi connection sensor and a calendar with your DND events.
+
+    <details>
+    <summary>How it works</summary>
+
+    The automation reacts to these changes. Each one is checked against its toggle:
+
+    1. **Phone starts charging**: switch on, if you are in a zone and the phone is
+       not connected to Wi-Fi (the Wi-Fi check is skipped when no sensor is set).
+    2. **Phone stops charging**: switch off, if you are in a zone.
+    3. **You enter a zone**: switch on (off by default).
+    4. **You leave all zones**: switch off.
+    5. **DND calendar event starts**: switch on, if you are in a zone
+       (or always, if you turn off *Require a zone for calendar events*).
+    6. **DND calendar event ends**: switch off.
+
+    "In a zone" means your person is listed in the `persons` attribute of at least
+    one of the chosen zones.
+
+    </details>
+
+    <details>
+    <summary>Good to know</summary>
+
+    - The triggers are templates, so they fire **only when the condition changes**
+      from false to true. Home Assistant restarting does not fire them again.
+    - If you are already in a zone and charging when you create the automation,
+      nothing happens until the next change.
+    - A Wi-Fi sensor that is `off`, `unavailable` or `unknown` counts as not connected.
+    - The calendar entity is `on` while an event is running, so any event on the
+      chosen calendar counts. Use a dedicated calendar for DND.
+    - A manual change of the switch is not undone until the next change of a rule.
+
+    </details>
+
+    <details>
+    <summary>Troubleshooting</summary>
+
+    - **Nothing happens**: open the trace. If the run stops at a condition, the
+      toggle is off or you are not in a zone.
+    - **The zone is never detected**: in Developer Tools → States, open the zone
+      and check that your person is listed in the `persons` attribute.
+    - **Charging does not switch on**: check the Wi-Fi sensor. If it is `on`, the
+      phone counts as connected.
+    - **The trigger does not fire at all**: in Developer Tools → Template, test
+      the condition, e.g. `{{ is_state('binary_sensor.pixel_is_charging', 'on') }}`.
+
+    </details>
+
+    <details>
+    <summary>Changelog</summary>
+
+    - **1.0**: First release.
+
+    </details>
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  source_url: https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/blob/main/android-dnd-auto-activation.yaml
+  input:
+    target:
+      name: Target
+      icon: mdi:toggle-switch
+      description: The switch to control and the person to follow.
+      input:
+        mode_switch:
+          name: DND switch
+          description: Toggle helper to turn on and off. Use the same one in Android DND Controller.
+          selector:
+            entity:
+              filter:
+                - domain: input_boolean
+        person:
+          name: Person
+          description: The person whose location is checked.
+          selector:
+            entity:
+              filter:
+                - domain: person
+        zones:
+          name: Zones
+          description: Zones where DND is allowed, e.g. your study places.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: zone
+
+    sensors:
+      name: Sensors
+      icon: mdi:cellphone-charging
+      description: Optional phone sensors. Leave a sensor empty to ignore it.
+      input:
+        charging_sensor:
+          name: Charging sensor (optional)
+          description: Binary sensor that is on while the phone charges, e.g. `binary_sensor.pixel_is_charging`.
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: binary_sensor
+        wifi_sensor:
+          name: Wi-Fi sensor (optional)
+          description: >-
+            Binary sensor that is on while the phone is connected to Wi-Fi.
+            When it is not on, the phone counts as not connected. Leave empty
+            to skip the Wi-Fi check.
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: binary_sensor
+        dnd_calendar:
+          name: DND calendar (optional)
+          description: Calendar whose events mean "do not disturb". Leave empty to ignore calendars.
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: calendar
+
+    rules:
+      name: Rules
+      icon: mdi:ruler
+      description: Turn each rule on or off.
+      input:
+        on_when_charging:
+          name: On when charging
+          description: Switch on when the phone starts charging in a zone (and is not on Wi-Fi, if a Wi-Fi sensor is set).
+          default: true
+          selector:
+            boolean:
+        off_when_unplugged:
+          name: Off when unplugged
+          description: Switch off when the phone stops charging while you are in a zone.
+          default: true
+          selector:
+            boolean:
+        off_when_leaving:
+          name: Off when leaving
+          description: Switch off when you leave all the zones.
+          default: true
+          selector:
+            boolean:
+        on_when_entering:
+          name: On when entering
+          description: Switch on as soon as you enter a zone, with no other condition.
+          default: false
+          selector:
+            boolean:
+        calendar_rules:
+          name: Calendar rules
+          description: Switch on when a DND calendar event starts and off when it ends.
+          default: true
+          selector:
+            boolean:
+        require_zone_for_calendar:
+          name: Require a zone for calendar events
+          description: Switch on at the start of an event only if you are in a zone.
+          default: true
+          selector:
+            boolean:
+
+mode: queued
+max: 10
+
+trigger_variables:
+  mode_switch: !input mode_switch
+  person: !input person
+  zones: !input zones
+  charging_sensor: !input charging_sensor
+  wifi_sensor: !input wifi_sensor
+  dnd_calendar: !input dnd_calendar
+
+triggers:
+  - alias: Phone started charging
+    id: charging_on
+    trigger: template
+    value_template: "{{ charging_sensor != '' and is_state(charging_sensor, 'on') }}"
+  - alias: Phone stopped charging
+    id: charging_off
+    trigger: template
+    value_template: "{{ charging_sensor != '' and is_state(charging_sensor, 'off') }}"
+  - alias: Person entered a zone
+    id: zone_enter
+    trigger: template
+    value_template: >-
+      {% set ns = namespace(inside=false) %}
+      {% for z in zones %}
+        {% if person in (state_attr(z, 'persons') or []) %}
+          {% set ns.inside = true %}
+        {% endif %}
+      {% endfor %}
+      {{ ns.inside }}
+  - alias: Person left all zones
+    id: zone_leave
+    trigger: template
+    value_template: >-
+      {% set ns = namespace(inside=false) %}
+      {% for z in zones %}
+        {% if person in (state_attr(z, 'persons') or []) %}
+          {% set ns.inside = true %}
+        {% endif %}
+      {% endfor %}
+      {{ not ns.inside }}
+  - alias: DND calendar event started
+    id: calendar_start
+    trigger: template
+    value_template: "{{ dnd_calendar != '' and is_state(dnd_calendar, 'on') }}"
+  - alias: DND calendar event ended
+    id: calendar_end
+    trigger: template
+    value_template: "{{ dnd_calendar != '' and is_state(dnd_calendar, 'off') }}"
+
+actions:
+  - alias: Work out the current context
+    variables:
+      in_zone: >-
+        {% set ns = namespace(inside=false) %}
+        {% for z in zones %}
+          {% if person in (state_attr(z, 'persons') or []) %}
+            {% set ns.inside = true %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.inside }}
+      wifi_connected: "{{ wifi_sensor != '' and is_state(wifi_sensor, 'on') }}"
+      switch_is_on: "{{ is_state(mode_switch, 'on') }}"
+      on_when_charging: !input on_when_charging
+      off_when_unplugged: !input off_when_unplugged
+      off_when_leaving: !input off_when_leaving
+      on_when_entering: !input on_when_entering
+      calendar_rules: !input calendar_rules
+      require_zone_for_calendar: !input require_zone_for_calendar
+  - alias: Apply the rule that matches the trigger
+    choose:
+      - alias: Charging in a zone, not on Wi-Fi - switch on
+        conditions:
+          - alias: Trigger is charging started
+            condition: trigger
+            id: charging_on
+          - alias: Rule enabled, in a zone, not on Wi-Fi, switch is off
+            condition: template
+            value_template: "{{ on_when_charging and in_zone and not wifi_connected and not switch_is_on }}"
+        sequence:
+          - alias: Turn the DND switch on
+            action: input_boolean.turn_on
+            target:
+              entity_id: !input mode_switch
+      - alias: Unplugged in a zone - switch off
+        conditions:
+          - alias: Trigger is charging stopped
+            condition: trigger
+            id: charging_off
+          - alias: Rule enabled, in a zone, switch is on
+            condition: template
+            value_template: "{{ off_when_unplugged and in_zone and switch_is_on }}"
+        sequence:
+          - alias: Turn the DND switch off
+            action: input_boolean.turn_off
+            target:
+              entity_id: !input mode_switch
+      - alias: Entered a zone - switch on
+        conditions:
+          - alias: Trigger is zone entered
+            condition: trigger
+            id: zone_enter
+          - alias: Rule enabled, switch is off
+            condition: template
+            value_template: "{{ on_when_entering and not switch_is_on }}"
+        sequence:
+          - alias: Turn the DND switch on
+            action: input_boolean.turn_on
+            target:
+              entity_id: !input mode_switch
+      - alias: Left the zones - switch off
+        conditions:
+          - alias: Trigger is zone left
+            condition: trigger
+            id: zone_leave
+          - alias: Rule enabled, switch is on
+            condition: template
+            value_template: "{{ off_when_leaving and switch_is_on }}"
+        sequence:
+          - alias: Turn the DND switch off
+            action: input_boolean.turn_off
+            target:
+              entity_id: !input mode_switch
+      - alias: Calendar event started - switch on
+        conditions:
+          - alias: Trigger is calendar event started
+            condition: trigger
+            id: calendar_start
+          - alias: Rule enabled, zone check passed, switch is off
+            condition: template
+            value_template: "{{ calendar_rules and (in_zone or not require_zone_for_calendar) and not switch_is_on }}"
+        sequence:
+          - alias: Turn the DND switch on
+            action: input_boolean.turn_on
+            target:
+              entity_id: !input mode_switch
+      - alias: Calendar event ended - switch off
+        conditions:
+          - alias: Trigger is calendar event ended
+            condition: trigger
+            id: calendar_end
+          - alias: Rule enabled, switch is on
+            condition: template
+            value_template: "{{ calendar_rules and switch_is_on }}"
+        sequence:
+          - alias: Turn the DND switch off
+            action: input_boolean.turn_off
+            target:
+              entity_id: !input mode_switch
