@@ -31,7 +31,7 @@ blueprint:
     # Group 1 settings
     g1_titolo:
       name: Event title (Group 1)
-      default: "⏰ Wake Up"
+      default: "Alarm 1"
       selector:
         text:
           multiline: false
@@ -67,7 +67,7 @@ blueprint:
     # Group 2 settings
     g2_titolo:
       name: Event title (Group 2)
-      default: "🚨 Emergency Wake"
+      default: "Alarm 2"
       selector:
         text:
           multiline: false

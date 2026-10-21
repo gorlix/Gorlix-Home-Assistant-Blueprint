@@ -10,10 +10,10 @@ Because the calendar is the source of truth, **anything that can write to a cale
 
 ## Features
 
-- **Calendar-driven.** Add an event called `⏰ Wake Up` at 07:00, and the alarms get set. You decide the event title.
+- **Calendar-driven.** Add an event called `Alarm 1` at 07:00, and the alarms get set. You decide the event title.
 - **Silent.** Alarms are created in the background with `android.intent.extra.alarm.SKIP_UI:true`. The clock app doesn't open and the screen doesn't wake up.
 - **Staggered alarms.** Set how many alarms you want and how far apart. With 4 alarms 10 minutes apart and an event at 07:00, you get 06:30, 06:40, 06:50 and 07:00. The last alarm always matches the event time.
-- **Two independent groups.** For example, a normal `⏰ Wake Up` and a `🚨 Emergency Wake` for mornings you really can't miss. Each group has its own event title, alarm count, interval and label on the phone.
+- **Two independent groups.** For example, `Alarm 1` for a normal morning and `Alarm 2` for mornings you really can't miss. Each group has its own event title, alarm count, interval and label on the phone.
 - **Confirmation notification.** After the alarms are set, you get a notification, so you know before going to sleep that everything is in place.
 
 ## Requirements
@@ -39,11 +39,11 @@ Because the calendar is the source of truth, **anything that can write to a cale
 | Run time | `23:00` | When the automation checks the calendar. Keep it before midnight. |
 | Calendar | — | Calendar entity to scan. |
 | Android notify service | — | Notify service of your phone, for example `notify.mobile_app_your_phone`. |
-| Event title (Group 1) | `⏰ Wake Up` | Exact title of the event that triggers Group 1. |
+| Event title (Group 1) | `Alarm 1` | Exact title of the event that triggers Group 1. |
 | Number of alarms (Group 1) | `4` | 1 to 10 alarms. |
 | Minutes between alarms (Group 1) | `10` | 1 to 60 minutes. |
 | Alarm label (Group 1) | `Home Assistant` | Label shown in the clock app. |
-| Event title (Group 2) | `🚨 Emergency Wake` | Exact title of the event that triggers Group 2. |
+| Event title (Group 2) | `Alarm 2` | Exact title of the event that triggers Group 2. |
 | Number of alarms (Group 2) | `3` | 1 to 10 alarms. |
 | Minutes between alarms (Group 2) | `10` | 1 to 60 minutes. |
 | Alarm label (Group 2) | `Emergency` | Label shown in the clock app. |
@@ -58,7 +58,7 @@ Because the calendar is the source of truth, **anything that can write to a cale
 
 ## Good to know
 
-- **Title matching is exact and case-sensitive.** `⏰ Wake Up` and `Wake up` are different titles.
+- **Title matching is exact and case-sensitive.** `Alarm 1` and `alarm 1` are different titles.
 - **Alarms are set once, in the evening.** If you delete or move the event afterwards, the alarms already on your phone stay where they are.
 - **Only the first matching event per group is used.**
 - **Keep the run time before midnight.** The search window always targets "tomorrow".
