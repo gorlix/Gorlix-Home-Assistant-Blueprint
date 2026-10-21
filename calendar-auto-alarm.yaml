@@ -2,6 +2,8 @@ blueprint:
   name: Advanced Android Alarms from Calendar
   description: Sets multiple configurable alarms on your Android device by reading the next morning's calendar events.
   domain: automation
+  homeassistant:
+    min_version: 2024.10.0
   source_url: https://github.com/gorlix/Home-Assistant-Calendar-Alarm/blob/main/calendar-auto-alarm.yaml
   input:
     orario_esecuzione:
@@ -100,11 +102,11 @@ blueprint:
 
 mode: single
 
-trigger:
-  - platform: time
+triggers:
+  - trigger: time
     at: !input orario_esecuzione
 
-action:
+actions:
   - variables:
       cal_entity: !input calendario
       g1_title: !input g1_titolo
@@ -146,46 +148,44 @@ action:
     value_template: >-
       {{ g1_start_str not in ['None', '', none] or g2_start_str not in ['None', '', none] }}
 
-  - if:
+  - alias: Group 1 alarms
+    if:
       - condition: template
         value_template: "{{ g1_start_str not in ['None', '', none] }}"
     then:
-      - variables:
-          g1_base_time: "{{ as_datetime(g1_start_str).astimezone() }}"
       - repeat:
           count: "{{ g1_count | int }}"
           sequence:
-            - variables:
-                offset_min: "{{ (g1_count | int - repeat.index) * (g1_interval | int) }}"
-                alarm_time: "{{ g1_base_time - timedelta(minutes=offset_min) }}"
             - action: !input dispositivo_android
               data:
                 message: command_activity
                 data:
                   intent_action: android.intent.action.SET_ALARM
+                  # Computed inline: datetimes stored in variables become strings
                   intent_extras: >-
+                    {% set offset_min = (g1_count | int - repeat.index) * (g1_interval | int) %}
+                    {% set alarm_time = as_datetime(g1_start_str).astimezone() - timedelta(minutes=offset_min) %}
                     android.intent.extra.alarm.HOUR:{{ alarm_time.hour }},android.intent.extra.alarm.MINUTES:{{ alarm_time.minute }},android.intent.extra.alarm.SKIP_UI:true,android.intent.extra.alarm.MESSAGE:{{ g1_label }}
             - delay:
                 seconds: 2
 
-  - if:
+  - alias: Group 2 alarms
+    if:
       - condition: template
         value_template: "{{ g2_start_str not in ['None', '', none] }}"
     then:
-      - variables:
-          g2_base_time: "{{ as_datetime(g2_start_str).astimezone() }}"
       - repeat:
           count: "{{ g2_count | int }}"
           sequence:
-            - variables:
-                offset_min: "{{ (g2_count | int - repeat.index) * (g2_interval | int) }}"
-                alarm_time: "{{ g2_base_time - timedelta(minutes=offset_min) }}"
             - action: !input dispositivo_android
               data:
                 message: command_activity
                 data:
                   intent_action: android.intent.action.SET_ALARM
+                  # Computed inline: datetimes stored in variables become strings
                   intent_extras: >-
+                    {% set offset_min = (g2_count | int - repeat.index) * (g2_interval | int) %}
+                    {% set alarm_time = as_datetime(g2_start_str).astimezone() - timedelta(minutes=offset_min) %}
                     android.intent.extra.alarm.HOUR:{{ alarm_time.hour }},android.intent.extra.alarm.MINUTES:{{ alarm_time.minute }},android.intent.extra.alarm.SKIP_UI:true,android.intent.extra.alarm.MESSAGE:{{ g2_label }}
             - delay:
                 seconds: 2
