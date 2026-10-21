@@ -20,8 +20,7 @@ blueprint:
 
     dispositivo_android:
       name: Servizio di Notifica Android
-      description: Es. notify.mobile_app_pixel_7_pro
-      default: "notify.mobile_app_pixel_7_pro"
+      description: Servizio notify del telefono Android, es. notify.mobile_app_nome_telefono
       selector:
         text:
           multiline: false
