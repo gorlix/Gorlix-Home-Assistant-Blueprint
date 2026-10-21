@@ -1,6 +1,70 @@
 blueprint:
   name: Advanced Android Alarms from Calendar
-  description: Sets multiple configurable alarms on your Android device by reading the next morning's calendar events.
+  description: |
+    ## Advanced Android Alarms from Calendar
+
+    **Version 1.1** | [GitHub](https://github.com/gorlix/Home-Assistant-Calendar-Alarm) | [Report an issue](https://github.com/gorlix/Home-Assistant-Calendar-Alarm/issues)
+
+    Every evening this automation reads tomorrow morning's calendar events and sets
+    real alarms in your Android phone's clock app. Nothing opens on the phone and the
+    screen stays off. Anything that can write to a calendar (an AI assistant, a bot,
+    a shared family calendar) can now set your alarms.
+
+    ### Features
+    - Alarms set silently in the background (`SKIP_UI`).
+    - Several staggered alarms per event, e.g. 4 alarms 10 minutes apart.
+    - Two independent groups, each with its own event title, count, interval and label.
+    - Optional confirmation notification with custom title and text.
+
+    ### Requirements
+    - Android phone with the [Home Assistant Companion app](https://companion.home-assistant.io/).
+    - **Alarms & reminders** permission granted to the app
+      (Android Settings → Apps → Home Assistant → Alarms & reminders).
+    - Any calendar integration: Local Calendar, Google Calendar, CalDAV, ...
+
+    <details>
+    <summary>How it works</summary>
+
+    1. At the run time, the automation reads events from **00:00 to 12:00 of the next day**.
+    2. For each group it takes the **first** event whose title matches exactly.
+    3. It counts backwards from the event start. With 4 alarms 10 minutes apart and an
+       event at 07:00 you get 06:30, 06:40, 06:50 and 07:00.
+    4. Each alarm is sent to the phone as an `android.intent.action.SET_ALARM` intent.
+    5. If no event matches, nothing happens. No event, no alarm.
+
+    </details>
+
+    <details>
+    <summary>Good to know</summary>
+
+    - Title matching is **exact and case-sensitive**: `Alarm 1` and `alarm 1` are different.
+    - Alarms are set once. Moving or deleting the event afterwards does not change
+      the alarms already on the phone.
+    - Keep the run time **before midnight**, since the search always targets tomorrow.
+    - Android only: iOS does not let apps create alarms in the Clock app.
+
+    </details>
+
+    <details>
+    <summary>Troubleshooting</summary>
+
+    - **The run lasts a fraction of a second and no alarm is set**: no event matched.
+      Open the trace, step *Get tomorrow morning's events*, and compare the event
+      titles with the ones set in Group 1 and Group 2.
+    - **Notifications arrive but no alarm appears**: check the *Alarms & reminders*
+      permission of the Companion app.
+    - **Duplicate alarms**: another automation is setting alarms from the same calendar.
+
+    </details>
+
+    <details>
+    <summary>Changelog</summary>
+
+    - **1.1**: English input keys, input sections, configurable confirmation
+      notification, fixed alarm time calculation, readable traces.
+    - **1.0**: First release.
+
+    </details>
   domain: automation
   homeassistant:
     min_version: 2024.10.0
@@ -8,14 +72,16 @@ blueprint:
   input:
     run_time:
       name: Run time
-      description: Evening time when the automation runs. Keep it before midnight.
+      description: >-
+        Evening time when the automation checks tomorrow's calendar.
+        Keep it before midnight, otherwise it looks at the day after tomorrow.
       default: "23:00:00"
       selector:
         time: {}
 
     calendar:
       name: Calendar
-      description: Calendar entity to scan.
+      description: Calendar that holds your wake-up events. Only events between 00:00 and 12:00 of the next day are read.
       selector:
         entity:
           filter:
@@ -23,7 +89,9 @@ blueprint:
 
     notify_service:
       name: Android notify service
-      description: Notify service of your Android phone, e.g. notify.mobile_app_your_phone
+      description: >-
+        Notify service of your Android phone, e.g. `notify.mobile_app_your_phone`.
+        You can find it in Developer Tools → Actions by typing `notify.mobile_app`.
       selector:
         text:
           multiline: false
@@ -31,10 +99,13 @@ blueprint:
     group_1:
       name: Group 1
       icon: mdi:alarm
+      description: Alarms for your normal wake-up event.
       input:
         g1_event_title:
           name: Event title
-          description: Exact title of the calendar event that triggers this group.
+          description: >-
+            Exact title of the calendar event that triggers this group.
+            Matching is case-sensitive and includes emoji.
           default: "Alarm 1"
           selector:
             text:
@@ -42,6 +113,7 @@ blueprint:
 
         g1_alarm_count:
           name: Number of alarms
+          description: How many alarms to set. The last one rings at the event start time.
           default: 4
           selector:
             number:
@@ -52,6 +124,7 @@ blueprint:
 
         g1_alarm_interval:
           name: Minutes between alarms
+          description: Gap between two alarms. With 3 alarms 10 minutes apart and an event at 07:00 you get 06:40, 06:50 and 07:00.
           default: 10
           selector:
             number:
@@ -63,6 +136,7 @@ blueprint:
 
         g1_alarm_label:
           name: Alarm label on the phone
+          description: Name shown on the alarm in the clock app.
           default: "Alarm 1"
           selector:
             text:
@@ -71,10 +145,13 @@ blueprint:
     group_2:
       name: Group 2
       icon: mdi:alarm-multiple
+      description: A second, independent set of alarms, e.g. for mornings you really can't miss.
       input:
         g2_event_title:
           name: Event title
-          description: Exact title of the calendar event that triggers this group.
+          description: >-
+            Exact title of the calendar event that triggers this group.
+            Matching is case-sensitive and includes emoji.
           default: "Alarm 2"
           selector:
             text:
@@ -82,6 +159,7 @@ blueprint:
 
         g2_alarm_count:
           name: Number of alarms
+          description: How many alarms to set. The last one rings at the event start time.
           default: 3
           selector:
             number:
@@ -92,6 +170,7 @@ blueprint:
 
         g2_alarm_interval:
           name: Minutes between alarms
+          description: Gap between two alarms. With 3 alarms 10 minutes apart and an event at 07:00 you get 06:40, 06:50 and 07:00.
           default: 10
           selector:
             number:
@@ -103,6 +182,7 @@ blueprint:
 
         g2_alarm_label:
           name: Alarm label on the phone
+          description: Name shown on the alarm in the clock app.
           default: "Alarm 2"
           selector:
             text:
@@ -111,6 +191,7 @@ blueprint:
     confirmation:
       name: Confirmation notification
       icon: mdi:bell-check
+      description: A normal notification sent after the alarms are set, so you know before sleeping that everything is in place.
       collapsed: true
       input:
         confirmation_enabled:

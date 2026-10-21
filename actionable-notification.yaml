@@ -1,10 +1,91 @@
 blueprint:
   name: Actionable Mobile Notification
-  description: >-
-    Sends a notification to a Home Assistant Companion app (Android or iOS)
-    with up to three buttons, each running its own actions. Optionally waits
-    for a reply with a timeout, runs timeout actions, clears the notification
-    and returns the result to the caller as a response variable.
+  description: |
+    ## Actionable Mobile Notification
+
+    **Version 1.0** | [GitHub](https://github.com/gorlix/Home-Assistant-Calendar-Alarm) | [Report an issue](https://github.com/gorlix/Home-Assistant-Calendar-Alarm/issues)
+
+    Sends a notification to the [Home Assistant Companion app](https://companion.home-assistant.io/)
+    with up to three buttons, waits for the reply and runs the matching actions.
+
+    ### Features
+    - Up to three buttons, each with its own actions or a link.
+    - Optional timeout with its own actions, and clearing of the notification.
+    - Camera snapshot or image attachments.
+    - Android and iOS delivery options: priority, channel, interruption level, ...
+    - Fields to override title, message, device and more for each call.
+    - Returns the reply to the caller as a response variable.
+
+    <details>
+    <summary>Using it from an automation</summary>
+
+    Every field is optional. Values not passed come from the blueprint settings.
+
+    ```yaml
+    - action: script.actionable_notification
+      data:
+        title: Front door
+        message: Someone rang the bell. Unlock?
+        camera: camera.front_door
+        timeout: 120          # seconds, or hours/minutes/seconds
+      response_variable: answer
+    - if: "{{ answer.reply == 'button_1' }}"
+      then:
+        - action: lock.unlock
+          target:
+            entity_id: lock.front_door
+    ```
+
+    `answer.reply` is one of: `button_1`, `button_2`, `button_3`,
+    `timeout`, `dismissed` (swiped away) or `sent` (nothing to wait for).
+
+    </details>
+
+    <details>
+    <summary>Link examples</summary>
+
+    Used by *Link on tap* and by button links.
+
+    - Dashboard: `/lovelace/home`
+    - Settings page: `/config/updates`
+    - Entity details: `entityId:light.kitchen`
+    - Website: `https://example.com`
+    - App (Android): `app://com.spotify.music`
+    - Notification history (Android): `settings://notification_history`
+    - Phone call (iOS): `tel:123456789`
+
+    </details>
+
+    <details>
+    <summary>Android vs iOS</summary>
+
+    - **Button links on Android** only open the link. They do not run the button's
+      actions and do not stop the timeout. This is a limit of the Companion app.
+    - **Swipe-away detection** works only on Android.
+    - **Red button** and **Require unlock** work only on iOS.
+    - **Channel importance** on Android is fixed the first time a channel is used.
+      Use a new channel name to change it.
+
+    </details>
+
+    <details>
+    <summary>Troubleshooting</summary>
+
+    - **Buttons do nothing**: go to Developer Tools → Events, listen to
+      `mobile_app_notification_action`, press a button and check that an event
+      arrives. If not, the phone cannot reach Home Assistant.
+    - **Wrong notify service**: if your service name does not match the device name,
+      set *Notify service* in the Target section.
+    - **The timeout actions run after pressing a link button**: see *Android vs iOS*.
+
+    </details>
+
+    <details>
+    <summary>Changelog</summary>
+
+    - **1.0**: First release.
+
+    </details>
   domain: script
   homeassistant:
     min_version: 2024.10.0
@@ -13,6 +94,7 @@ blueprint:
     target:
       name: Target
       icon: mdi:cellphone
+      description: Where the notification goes.
       input:
         notify_device:
           name: Device
@@ -33,9 +115,11 @@ blueprint:
     content:
       name: Content
       icon: mdi:message-text
+      description: Default content. Each value can be overridden when calling the script.
       input:
         default_title:
           name: Title
+          description: Leave empty for no title.
           default: ""
           selector:
             text:
@@ -88,6 +172,7 @@ blueprint:
             text:
         button_1_actions:
           name: Button 1 - Actions
+          description: Run when button 1 is pressed. Leave empty to do nothing.
           default: []
           selector:
             action: {}
@@ -106,6 +191,7 @@ blueprint:
             text:
         button_2_actions:
           name: Button 2 - Actions
+          description: Run when button 2 is pressed. Leave empty to do nothing.
           default: []
           selector:
             action: {}
@@ -121,6 +207,7 @@ blueprint:
             text:
         button_3_actions:
           name: Button 3 - Actions
+          description: Run when button 3 is pressed. Leave empty to do nothing.
           default: []
           selector:
             action: {}
@@ -154,6 +241,7 @@ blueprint:
     response:
       name: Waiting for a reply
       icon: mdi:timer-sand
+      description: The script waits only if at least one button runs actions or the timeout is on.
       input:
         timeout_enabled:
           name: Use a timeout
@@ -163,6 +251,7 @@ blueprint:
             boolean: {}
         default_timeout:
           name: Timeout
+          description: How long to wait for a reply. At least one minute is recommended.
           default:
             hours: 0
             minutes: 15
@@ -183,6 +272,7 @@ blueprint:
             boolean: {}
         clear_on_timeout:
           name: Clear notification on timeout
+          description: Remove the notification from the phone when nobody replied in time.
           default: true
           selector:
             boolean: {}
@@ -190,6 +280,7 @@ blueprint:
     delivery:
       name: Delivery
       icon: mdi:send
+      description: How the notification is delivered and shown. Defaults work for most cases.
       collapsed: true
       input:
         channel:
