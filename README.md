@@ -27,7 +27,8 @@ Because the calendar is the source of truth, **anything that can write to a cale
 - **Silent.** Alarms are created in the background with `android.intent.extra.alarm.SKIP_UI:true`. The clock app doesn't open and the screen doesn't wake up.
 - **Staggered alarms.** Set how many alarms you want and how far apart. With 4 alarms 10 minutes apart and an event at 07:00, you get 06:30, 06:40, 06:50 and 07:00. The last alarm always matches the event time.
 - **Two independent groups.** For example, `Alarm 1` for a normal morning and `Alarm 2` for mornings you really can't miss. Each group has its own event title, alarm count, interval and label on the phone.
-- **Confirmation notification.** After the alarms are set, you get a notification, so you know before going to sleep that everything is in place. You can change its title and text, or turn it off.
+- **Confirmation notification.** After the alarms are set, you get a notification, so you know before going to sleep that everything is in place. You can change its title, text, link, channel and other Android options, or turn it off.
+- **Reliable delivery.** Alarm commands are sent with high priority, so a phone in Doze mode gets them right away.
 
 ### Requirements
 
@@ -63,6 +64,25 @@ Inputs are grouped into collapsible sections: general settings, Group 1, Group 2
 | Send confirmation | `on` | Send a notification after the alarms are set. |
 | Notification title | `Alarms Set` | Title of the confirmation notification. |
 | Notification message | `Your alarms for tomorrow morning have been set.` | Text of the confirmation notification. |
+| Link on tap | — | Opened when the confirmation is tapped, for example `/lovelace/home`. |
+
+The **Android notification options** section controls how the confirmation is delivered and shown:
+
+| Input | Default | Description |
+|---|---|---|
+| Channel | `Alarms` | Notification channel. Its sound and importance are fixed when it is first used. |
+| Importance | `Low` | Sound and pop-up behaviour, applied when the channel is created. |
+| Deliver immediately | `on` | High priority and no time-to-live, so a phone in Doze mode gets it right away. |
+| Lock screen visibility | `Private` | Public, private or secret. |
+| Status bar icon | `mdi:alarm-check` | Icon in the status bar. |
+| Icon color | — | Color of the icon. |
+| Remove after | `0` | Remove the notification automatically after this time. 0 keeps it. |
+| Keep after tap | `off` | Keep the notification when it is tapped. |
+| Alert once | `on` | No new sound when the notification is replaced. |
+| Vibration pattern | — | For example `100, 300, 100, 300`, applied when the channel is created. |
+| Tag | `calendar_alarms` | A new confirmation replaces the previous one. |
+| Group | — | Stack notifications with the same group together. |
+| Show on Android Auto | `off` | Also show the notification in Android Auto. |
 
 ### How it works
 

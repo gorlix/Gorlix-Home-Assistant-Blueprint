@@ -3,7 +3,7 @@ blueprint:
   description: |
     ## Advanced Android Alarms from Calendar
 
-    **Version 1.2** | [GitHub](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint) | [Report an issue](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/issues)
+    **Version 1.3** | [GitHub](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint) | [Report an issue](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/issues)
 
     Every evening this automation reads tomorrow morning's calendar events and sets
     real alarms in your Android phone's clock app. Nothing opens on the phone and the
@@ -14,7 +14,8 @@ blueprint:
     - Alarms set silently in the background (`SKIP_UI`).
     - Several staggered alarms per event, e.g. 4 alarms 10 minutes apart.
     - Two independent groups, each with its own event title, count, interval and label.
-    - Optional confirmation notification with custom title and text.
+    - Optional confirmation notification with custom title, text, link and Android options.
+    - Alarm commands sent with high priority, so a sleeping phone gets them right away.
 
     ### Requirements
     - Android phone with the [Home Assistant Companion app](https://companion.home-assistant.io/).
@@ -60,6 +61,8 @@ blueprint:
     <details>
     <summary>Changelog</summary>
 
+    - **1.3**: Android options for the confirmation notification (channel, importance,
+      icon, auto-dismiss, ...) and link on tap. Alarm commands sent with high priority.
     - **1.2**: Pick the phone from your devices. The notify service is now optional.
     - **1.1**: English input keys, input sections, configurable confirmation
       notification, fixed alarm time calculation, readable traces.
@@ -227,6 +230,130 @@ blueprint:
             text:
               multiline: true
 
+        confirmation_link:
+          name: Link on tap
+          description: >-
+            Opened when the notification is tapped, e.g. `/lovelace/home`,
+            `entityId:calendar.my_calendar` or `app://com.google.android.deskclock`.
+            Leave empty to open the Companion app.
+          default: ""
+          selector:
+            text:
+
+    android_options:
+      name: Android notification options
+      icon: mdi:android
+      description: >-
+        How the confirmation notification is delivered and shown on Android.
+        The defaults work for most cases.
+      collapsed: true
+      input:
+        channel:
+          name: Channel
+          description: >-
+            Notification channel, shown in Android Settings → Apps → Home Assistant →
+            Notifications. Android fixes a channel's sound and importance the first
+            time it is used: to change them later, use a new channel name or edit
+            the channel in Android settings.
+          default: "Alarms"
+          selector:
+            text:
+        importance:
+          name: Importance
+          description: Applied only when the channel is created.
+          default: low
+          selector:
+            select:
+              options:
+                - label: High, sound and pop-up
+                  value: high
+                - label: Default, sound
+                  value: default
+                - label: Low, silent
+                  value: low
+                - label: Min, silent and hidden from status bar
+                  value: min
+        high_priority:
+          name: Deliver immediately
+          description: >-
+            Send with high priority and no time-to-live, so a phone in Doze mode
+            gets it right away.
+          default: true
+          selector:
+            boolean: {}
+        visibility:
+          name: Lock screen visibility
+          default: private
+          selector:
+            select:
+              options:
+                - label: Public, always show content
+                  value: public
+                - label: Private, follow phone settings
+                  value: private
+                - label: Secret, hide on lock screen
+                  value: secret
+        android_icon:
+          name: Status bar icon
+          default: "mdi:alarm-check"
+          selector:
+            icon: {}
+        android_color:
+          name: Icon color
+          description: Leave empty for the default color.
+          default: []
+          selector:
+            color_rgb: {}
+        auto_dismiss:
+          name: Remove after
+          description: Remove the notification automatically after this time. 0 keeps it.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 0
+          selector:
+            duration: {}
+        sticky:
+          name: Keep after tap
+          description: Keep the notification when it is tapped.
+          default: false
+          selector:
+            boolean: {}
+        alert_once:
+          name: Alert once
+          description: Do not play a sound again when a notification with the same tag is replaced.
+          default: true
+          selector:
+            boolean: {}
+        vibration_pattern:
+          name: Vibration pattern
+          description: >-
+            Comma-separated milliseconds, alternating pause and vibration,
+            e.g. `100, 300, 100, 300`. Applied only when the channel is created.
+            Leave empty for the default.
+          default: ""
+          selector:
+            text:
+        tag:
+          name: Tag
+          description: >-
+            A new notification with the same tag replaces the previous one, so
+            you never see more than one confirmation.
+          default: "calendar_alarms"
+          selector:
+            text:
+        group:
+          name: Group
+          description: Notifications with the same group are stacked together.
+          default: ""
+          selector:
+            text:
+        car_ui:
+          name: Show on Android Auto
+          default: false
+          selector:
+            boolean: {}
+
 mode: single
 
 triggers:
@@ -246,6 +373,20 @@ actions:
       g2_interval: !input g2_alarm_interval
       g2_label: !input g2_alarm_label
       confirmation_enabled: !input confirmation_enabled
+      confirmation_link: !input confirmation_link
+      channel: !input channel
+      importance: !input importance
+      high_priority: !input high_priority
+      visibility: !input visibility
+      android_icon: !input android_icon
+      android_color: !input android_color
+      auto_dismiss: !input auto_dismiss
+      sticky: !input sticky
+      alert_once: !input alert_once
+      vibration_pattern: !input vibration_pattern
+      tag: !input tag
+      group: !input group
+      car_ui: !input car_ui
       input_device: !input notify_device
       input_service: !input notify_service
       notify_service: >-
@@ -312,6 +453,9 @@ actions:
               data:
                 message: command_activity
                 data:
+                  # High priority and no TTL so a sleeping phone gets the command right away
+                  priority: high
+                  ttl: 0
                   intent_action: android.intent.action.SET_ALARM
                   # Computed inline: datetimes stored in variables become strings
                   intent_extras: >-
@@ -337,6 +481,9 @@ actions:
               data:
                 message: command_activity
                 data:
+                  # High priority and no TTL so a sleeping phone gets the command right away
+                  priority: high
+                  ttl: 0
                   intent_action: android.intent.action.SET_ALARM
                   # Computed inline: datetimes stored in variables become strings
                   intent_extras: >-
@@ -353,8 +500,30 @@ actions:
         condition: template
         value_template: "{{ confirmation_enabled }}"
     then:
+      - alias: Build confirmation payload
+        variables:
+          confirmation_payload: >-
+            {% set d = {'channel': channel, 'importance': importance, 'visibility': visibility} %}
+            {% if high_priority %}{% set d = dict(d, priority='high', ttl=0) %}{% endif %}
+            {% if confirmation_link | trim %}{% set d = dict(d, clickAction=confirmation_link | trim) %}{% endif %}
+            {% if android_icon %}{% set d = dict(d, notification_icon=android_icon) %}{% endif %}
+            {% if android_color | count == 3 %}
+              {% set d = dict(d, color='#%02x%02x%02x' | format(android_color[0], android_color[1], android_color[2])) %}
+            {% endif %}
+            {% set secs = (auto_dismiss.get('hours', 0) | int) * 3600
+                        + (auto_dismiss.get('minutes', 0) | int) * 60
+                        + (auto_dismiss.get('seconds', 0) | int) %}
+            {% if secs > 0 %}{% set d = dict(d, timeout=secs) %}{% endif %}
+            {% if sticky %}{% set d = dict(d, sticky='true') %}{% endif %}
+            {% if alert_once %}{% set d = dict(d, alert_once=true) %}{% endif %}
+            {% if vibration_pattern | trim %}{% set d = dict(d, vibrationPattern=vibration_pattern | trim) %}{% endif %}
+            {% if tag | trim %}{% set d = dict(d, tag=tag | trim) %}{% endif %}
+            {% if group | trim %}{% set d = dict(d, group=group | trim) %}{% endif %}
+            {% if car_ui %}{% set d = dict(d, car_ui=true) %}{% endif %}
+            {{ d }}
       - alias: Send confirmation
         action: "{{ notify_service }}"
         data:
           title: !input confirmation_title
           message: !input confirmation_message
+          data: "{{ confirmation_payload }}"
