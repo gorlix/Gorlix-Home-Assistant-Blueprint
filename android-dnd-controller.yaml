@@ -1,0 +1,590 @@
+blueprint:
+  name: Android DND Controller
+  description: |
+    ## Android DND Controller
+
+    **Version 1.0** | [GitHub](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint) | [Report an issue](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/issues)
+
+    Turns Do Not Disturb on your Android phone on and off with a toggle helper, and
+    lets you **pause it for a while** straight from a notification. When the pause
+    ends, DND comes back on by itself.
+
+    ### Features
+    - DND level of your choice: priority only, alarms only or total silence.
+    - Optional ringer mode when DND turns on and off (e.g. vibrate / normal).
+    - Ongoing notification with up to three pause buttons, e.g. 30 seconds and 10 minutes.
+    - While paused, the notification shows a live countdown and a button to resume DND.
+    - Optional extra actions when DND turns on or off.
+    - Commands sent with high priority, so a phone in Doze mode gets them right away.
+    - Button IDs are unique per automation, so several phones or instances never mix up.
+
+    ### Requirements
+    - Android phone with the [Home Assistant Companion app](https://companion.home-assistant.io/).
+    - **Do Not Disturb access** granted to the app (Android Settings → Apps →
+      Special app access → Do Not Disturb access → Home Assistant). The first
+      `command_dnd` opens that page if the permission is missing.
+    - An **input_boolean** helper (the DND switch) and a **timer** helper (the pause).
+      Create them in Settings → Devices & services → Helpers. Turn on *Restore* on
+      the timer, so a pause survives a Home Assistant restart.
+
+    <details>
+    <summary>How it works</summary>
+
+    1. **Switch on**: sets the ringer mode (if chosen), turns DND on and shows the
+       notification with the pause buttons.
+    2. **Pause button**: starts the timer with that button's duration.
+    3. **Timer running**: DND turns off and the notification shows the countdown
+       and a *Resume* button.
+    4. **Timer ends or Resume pressed**: DND turns back on, if the switch is still on.
+    5. **Switch off**: cancels any pause, sets the ringer mode (if chosen), turns DND
+       off and removes the notification.
+
+    Anything can drive the switch: a dashboard button, a voice assistant, a calendar
+    or the companion blueprint *Android DND Auto Activation*.
+
+    </details>
+
+    <details>
+    <summary>Good to know</summary>
+
+    - The switch is the source of truth. If you change DND by hand on the phone,
+      Home Assistant does not know about it.
+    - Pressing a pause button while already paused restarts the pause with the new
+      duration, and the notification updates.
+    - `{time}` in the paused message is replaced with the time the pause ends.
+    - Android fixes a channel's sound and importance the first time it is used.
+      To change them later, use a new channel name.
+
+    </details>
+
+    <details>
+    <summary>Troubleshooting</summary>
+
+    - **DND does not change**: check the *Do Not Disturb access* permission.
+    - **Buttons do nothing**: in Developer Tools → Events, listen to
+      `mobile_app_notification_action` and press a button. If no event arrives,
+      the phone cannot reach Home Assistant.
+    - **The notification disappears after a tap**: turn on *Keep after tap*.
+
+    </details>
+
+    <details>
+    <summary>Changelog</summary>
+
+    - **1.0**: First release.
+
+    </details>
+  domain: automation
+  homeassistant:
+    min_version: 2024.10.0
+  source_url: https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/blob/main/android-dnd-controller.yaml
+  input:
+    target:
+      name: Target
+      icon: mdi:cellphone
+      description: The phone and the two helpers that drive DND.
+      input:
+        mode_switch:
+          name: DND switch
+          description: Toggle helper. On means DND on, off means DND off.
+          selector:
+            entity:
+              filter:
+                - domain: input_boolean
+        pause_timer:
+          name: Pause timer
+          description: Timer helper used for the pause. Turn on Restore in its settings.
+          selector:
+            entity:
+              filter:
+                - domain: timer
+        notify_device:
+          name: Android phone
+          description: Phone running the Home Assistant Companion app.
+          default: ""
+          selector:
+            device:
+              filter:
+                - integration: mobile_app
+        notify_service:
+          name: Notify service (optional)
+          description: >-
+            Leave empty to use the phone's default service. Set it only if your
+            service name differs from the device name, e.g. `notify.mobile_app_my_phone`.
+          default: ""
+          selector:
+            text:
+
+    dnd:
+      name: Do Not Disturb
+      icon: mdi:minus-circle
+      input:
+        dnd_level:
+          name: DND level
+          description: What is allowed through while DND is on.
+          default: priority_only
+          selector:
+            select:
+              options:
+                - label: Priority only
+                  value: priority_only
+                - label: Alarms only
+                  value: alarms_only
+                - label: Total silence
+                  value: total_silence
+        ringer_on:
+          name: Ringer mode when DND turns on
+          default: none
+          selector:
+            select:
+              options:
+                - label: Don't change
+                  value: none
+                - label: Normal
+                  value: normal
+                - label: Vibrate
+                  value: vibrate
+                - label: Silent
+                  value: silent
+        ringer_off:
+          name: Ringer mode when DND turns off
+          default: none
+          selector:
+            select:
+              options:
+                - label: Don't change
+                  value: none
+                - label: Normal
+                  value: normal
+                - label: Vibrate
+                  value: vibrate
+                - label: Silent
+                  value: silent
+
+    pause_buttons:
+      name: Pause buttons
+      icon: mdi:pause-circle
+      description: Buttons on the notification that pause DND. Leave a title empty to hide a button.
+      input:
+        pause_1_title:
+          name: Button 1 - Title
+          default: "30 seconds"
+          selector:
+            text:
+        pause_1_duration:
+          name: Button 1 - Duration
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 30
+          selector:
+            duration: {}
+        pause_2_title:
+          name: Button 2 - Title
+          default: "10 minutes"
+          selector:
+            text:
+        pause_2_duration:
+          name: Button 2 - Duration
+          default:
+            hours: 0
+            minutes: 10
+            seconds: 0
+          selector:
+            duration: {}
+        pause_3_title:
+          name: Button 3 - Title
+          default: ""
+          selector:
+            text:
+        pause_3_duration:
+          name: Button 3 - Duration
+          default:
+            hours: 1
+            minutes: 0
+            seconds: 0
+          selector:
+            duration: {}
+        resume_title:
+          name: Resume button - Title
+          description: Shown while DND is paused.
+          default: "Resume DND"
+          selector:
+            text:
+
+    notification:
+      name: Notification
+      icon: mdi:bell-cog
+      collapsed: true
+      input:
+        on_title:
+          name: Title while DND is on
+          default: "Do Not Disturb on"
+          selector:
+            text:
+        on_message:
+          name: Message while DND is on
+          default: "Pause it with the buttons below."
+          selector:
+            text:
+              multiline: true
+        paused_title:
+          name: Title while paused
+          default: "Do Not Disturb paused"
+          selector:
+            text:
+        paused_message:
+          name: Message while paused
+          description: "`{time}` is replaced with the time the pause ends."
+          default: "DND is off until {time}."
+          selector:
+            text:
+              multiline: true
+        link:
+          name: Link on tap
+          description: Opened when the notification is tapped, e.g. `/lovelace/home`.
+          default: ""
+          selector:
+            text:
+        channel:
+          name: Channel
+          default: "DND Control"
+          selector:
+            text:
+        importance:
+          name: Importance
+          description: Applied only when the channel is created.
+          default: low
+          selector:
+            select:
+              options:
+                - label: High, sound and pop-up
+                  value: high
+                - label: Default, sound
+                  value: default
+                - label: Low, silent
+                  value: low
+                - label: Min, silent and hidden from status bar
+                  value: min
+        android_icon:
+          name: Status bar icon
+          default: "mdi:minus-circle"
+          selector:
+            icon: {}
+        persistent:
+          name: Cannot be swiped away
+          default: true
+          selector:
+            boolean: {}
+        sticky:
+          name: Keep after tap
+          default: true
+          selector:
+            boolean: {}
+
+    extra:
+      name: Extra actions
+      icon: mdi:play-circle
+      collapsed: true
+      input:
+        actions_on:
+          name: When DND turns on
+          description: Also run when DND comes back after a pause.
+          default: []
+          selector:
+            action: {}
+        actions_off:
+          name: When DND turns off
+          description: Also run when DND is paused.
+          default: []
+          selector:
+            action: {}
+
+mode: queued
+max: 10
+
+triggers:
+  - alias: DND switch turned on
+    trigger: state
+    entity_id: !input mode_switch
+    from: "off"
+    to: "on"
+    id: switch_on
+  - alias: DND switch turned off
+    trigger: state
+    entity_id: !input mode_switch
+    from: "on"
+    to: "off"
+    id: switch_off
+  - alias: Pause started
+    trigger: state
+    entity_id: !input pause_timer
+    to: active
+    id: pause_started
+  - alias: Pause restarted with a new duration
+    trigger: state
+    entity_id: !input pause_timer
+    attribute: finishes_at
+    id: pause_changed
+  - alias: Pause ended
+    trigger: state
+    entity_id: !input pause_timer
+    from: active
+    to: idle
+    id: pause_ended
+  - alias: Notification button pressed
+    trigger: event
+    event_type: mobile_app_notification_action
+    id: button
+
+variables:
+  mode_switch: !input mode_switch
+  pause_timer: !input pause_timer
+  input_device: !input notify_device
+  input_service: !input notify_service
+  dnd_level: !input dnd_level
+  ringer_on: !input ringer_on
+  ringer_off: !input ringer_off
+  pause_titles:
+    - !input pause_1_title
+    - !input pause_2_title
+    - !input pause_3_title
+  pause_durations:
+    - !input pause_1_duration
+    - !input pause_2_duration
+    - !input pause_3_duration
+  resume_title: !input resume_title
+  on_title: !input on_title
+  on_message: !input on_message
+  paused_title: !input paused_title
+  paused_message: !input paused_message
+  link: !input link
+  channel: !input channel
+  importance: !input importance
+  android_icon: !input android_icon
+  persistent: !input persistent
+  sticky: !input sticky
+  # IDs tied to this automation, so several instances never react to each other
+  id_prefix: "{{ 'DND_' ~ this.attributes.id }}"
+  pause_ids:
+    - "{{ id_prefix ~ '_PAUSE_1' }}"
+    - "{{ id_prefix ~ '_PAUSE_2' }}"
+    - "{{ id_prefix ~ '_PAUSE_3' }}"
+  resume_id: "{{ id_prefix ~ '_RESUME' }}"
+  tag: "{{ 'dnd_controller_' ~ this.attributes.id }}"
+  notify_service: >-
+    {% if input_service | trim %}
+      {{ input_service | trim }}
+    {% elif input_device %}
+      notify.mobile_app_{{ device_attr(input_device, 'name') | slugify }}
+    {% endif %}
+  base_data: >-
+    {% set d = {'tag': tag, 'channel': channel, 'importance': importance,
+                'priority': 'high', 'ttl': 0, 'alert_once': true} %}
+    {% if link | trim %}{% set d = dict(d, clickAction=link | trim) %}{% endif %}
+    {% if android_icon %}{% set d = dict(d, notification_icon=android_icon) %}{% endif %}
+    {% if persistent %}{% set d = dict(d, persistent=true) %}{% endif %}
+    {% if sticky %}{% set d = dict(d, sticky='true') %}{% endif %}
+    {{ d }}
+  on_data: >-
+    {% set ns = namespace(actions=[]) %}
+    {% for t in pause_titles %}
+      {% if t | trim %}
+        {% set ns.actions = ns.actions + [{'action': pause_ids[loop.index0], 'title': t}] %}
+      {% endif %}
+    {% endfor %}
+    {{ dict(base_data, actions=ns.actions) }}
+
+conditions:
+  - alias: Only button presses from this automation
+    condition: template
+    value_template: >-
+      {{ trigger.id != 'button'
+         or trigger.event.data.action in pause_ids + [resume_id] }}
+  - alias: Only real changes of the pause end time
+    condition: template
+    value_template: >-
+      {{ trigger.id != 'pause_changed'
+         or (trigger.from_state is not none and trigger.to_state is not none
+             and trigger.from_state.state == 'active' and trigger.to_state.state == 'active') }}
+
+actions:
+  - alias: Stop if no phone is set
+    if:
+      - alias: No phone or notify service
+        condition: template
+        value_template: "{{ not notify_service }}"
+    then:
+      - stop: Set the Android phone or the notify service in the blueprint settings.
+        error: true
+
+  - alias: React to the trigger
+    choose:
+      - alias: DND switch turned on
+        conditions:
+          - condition: trigger
+            id: switch_on
+        sequence:
+          - alias: Set ringer mode
+            if:
+              - alias: Ringer mode chosen
+                condition: template
+                value_template: "{{ ringer_on != 'none' }}"
+            then:
+              - alias: Send command_ringer_mode
+                action: "{{ notify_service }}"
+                data:
+                  message: command_ringer_mode
+                  data:
+                    command: "{{ ringer_on }}"
+                    priority: high
+                    ttl: 0
+          - &dnd_on
+            alias: Turn DND on
+            action: "{{ notify_service }}"
+            data:
+              message: command_dnd
+              data:
+                command: "{{ dnd_level }}"
+                priority: high
+                ttl: 0
+          - &show_on
+            alias: Show the pause notification
+            action: "{{ notify_service }}"
+            data:
+              title: "{{ on_title }}"
+              message: "{{ on_message }}"
+              data: "{{ on_data }}"
+          - &extra_on
+            alias: Extra actions on
+            sequence: !input actions_on
+
+      - alias: DND switch turned off
+        conditions:
+          - condition: trigger
+            id: switch_off
+        sequence:
+          - alias: Cancel any pause
+            if:
+              - alias: Pause running
+                condition: template
+                value_template: "{{ not is_state(pause_timer, 'idle') }}"
+            then:
+              - alias: Cancel the timer
+                action: timer.cancel
+                target:
+                  entity_id: "{{ pause_timer }}"
+          - alias: Set ringer mode
+            if:
+              - alias: Ringer mode chosen
+                condition: template
+                value_template: "{{ ringer_off != 'none' }}"
+            then:
+              - alias: Send command_ringer_mode
+                action: "{{ notify_service }}"
+                data:
+                  message: command_ringer_mode
+                  data:
+                    command: "{{ ringer_off }}"
+                    priority: high
+                    ttl: 0
+          - &dnd_off
+            alias: Turn DND off
+            action: "{{ notify_service }}"
+            data:
+              message: command_dnd
+              data:
+                command: "off"
+                priority: high
+                ttl: 0
+          - alias: Remove the notification
+            action: "{{ notify_service }}"
+            data:
+              message: clear_notification
+              data:
+                tag: "{{ tag }}"
+          - &extra_off
+            alias: Extra actions off
+            sequence: !input actions_off
+
+      - alias: Pause button pressed
+        conditions:
+          - condition: trigger
+            id: button
+          - alias: It is a pause button and DND is on
+            condition: template
+            value_template: >-
+              {{ trigger.event.data.action in pause_ids and is_state(mode_switch, 'on') }}
+        sequence:
+          - alias: Start the pause
+            variables:
+              duration: >-
+                {% set ns = namespace(d={}) %}
+                {% for id in pause_ids %}
+                  {% if id == trigger.event.data.action %}{% set ns.d = pause_durations[loop.index0] %}{% endif %}
+                {% endfor %}
+                {% set d = ns.d %}
+                {% set secs = (d.get('days', 0) | int) * 86400 + (d.get('hours', 0) | int) * 3600
+                              + (d.get('minutes', 0) | int) * 60 + (d.get('seconds', 0) | int) %}
+                {{ '%02d:%02d:%02d' | format(secs // 3600, (secs % 3600) // 60, secs % 60) }}
+          - alias: Start the timer
+            action: timer.start
+            target:
+              entity_id: "{{ pause_timer }}"
+            data:
+              duration: "{{ duration }}"
+
+      - alias: Resume button pressed
+        conditions:
+          - condition: trigger
+            id: button
+          - alias: It is the resume button
+            condition: template
+            value_template: "{{ trigger.event.data.action == resume_id }}"
+        sequence:
+          - alias: Cancel the timer
+            action: timer.cancel
+            target:
+              entity_id: "{{ pause_timer }}"
+
+      - alias: Pause started or restarted
+        conditions:
+          - condition: trigger
+            id:
+              - pause_started
+              - pause_changed
+          - alias: DND switch is on
+            condition: template
+            value_template: "{{ is_state(mode_switch, 'on') }}"
+        sequence:
+          - alias: Turn DND off only when the pause starts
+            if:
+              - condition: trigger
+                id: pause_started
+            then:
+              - *dnd_off
+              - *extra_off
+          - alias: Show the countdown notification
+            variables:
+              ends_at: "{{ as_timestamp(state_attr(pause_timer, 'finishes_at'), 0) | int }}"
+          - alias: Send the countdown notification
+            action: "{{ notify_service }}"
+            data:
+              title: "{{ paused_title }}"
+              message: >-
+                {{ paused_message | replace('{time}', ends_at | timestamp_custom('%H:%M', default='?')) }}
+              data: >-
+                {{ dict(base_data, chronometer=true, when=ends_at,
+                        actions=[{'action': resume_id, 'title': resume_title}]) }}
+
+      - alias: Pause ended
+        conditions:
+          - condition: trigger
+            id: pause_ended
+          - alias: DND switch is still on
+            condition: template
+            value_template: "{{ is_state(mode_switch, 'on') }}"
+        sequence:
+          - *dnd_on
+          - *show_on
+          - *extra_on
