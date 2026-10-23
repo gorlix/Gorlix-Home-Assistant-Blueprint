@@ -3,7 +3,7 @@ blueprint:
   description: |
     ## Advanced Android Alarms from Calendar
 
-    **Version 1.3** | [GitHub](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint) | [Report an issue](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/issues)
+    **Version 1.4** | [GitHub](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint) | [Report an issue](https://github.com/gorlix/Gorlix-Home-Assistant-Blueprint/issues)
 
     Every evening this automation reads tomorrow morning's calendar events and sets
     real alarms in your Android phone's clock app. Nothing opens on the phone and the
@@ -16,6 +16,8 @@ blueprint:
     - Two independent groups, each with its own event title, count, interval and label.
     - Optional confirmation notification with custom title, text, link and Android options.
     - Alarm commands sent with high priority, so a sleeping phone gets them right away.
+    - Sync: moved or deleted events update the alarms on the phone (needs a Text helper).
+    - Run it on demand from a webhook, a Home Assistant event or a periodic check.
 
     ### Requirements
     - Android phone with the [Home Assistant Companion app](https://companion.home-assistant.io/).
@@ -26,12 +28,20 @@ blueprint:
     <details>
     <summary>How it works</summary>
 
-    1. At the run time, the automation reads events from **00:00 to 12:00 of the next day**.
+    1. At the run time, the automation reads events from **00:00 to 12:00 of the next
+       morning**: today before 12:00, tomorrow after 12:00. A webhook or event can force
+       the day with `day: today` or `day: tomorrow`.
     2. For each group it takes the **first** event whose title matches exactly.
     3. It counts backwards from the event start. With 4 alarms 10 minutes apart and an
        event at 07:00 you get 06:30, 06:40, 06:50 and 07:00.
     4. Each alarm is sent to the phone as an `android.intent.action.SET_ALARM` intent.
     5. If no event matches, nothing happens. No event, no alarm.
+    6. With the sync helper set, the automation remembers the alarms it set. On the next
+       run, if an event moved or disappeared, it removes the old alarms with
+       `android.intent.action.DISMISS_ALARM` (searched by exact time) and sets the new ones.
+       If nothing changed, nothing is sent.
+    7. Before reading, the calendar is refreshed, so a sync started right after an edit
+       sees the new event.
 
     </details>
 
@@ -39,9 +49,16 @@ blueprint:
     <summary>Good to know</summary>
 
     - Title matching is **exact and case-sensitive**: `Alarm 1` and `alarm 1` are different.
-    - Alarms are set once. Moving or deleting the event afterwards does not change
-      the alarms already on the phone.
-    - Keep the run time **before midnight**, since the search always targets tomorrow.
+    - Without the sync helper, alarms are only added: moving or deleting the event
+      afterwards does not change the alarms already on the phone.
+    - Home Assistant has no trigger for *event changed*: to react to calendar edits,
+      call the webhook after editing or turn on the periodic check.
+    - Google Clock deletes removed alarms. Other clock apps may only switch them off,
+      or open for a moment while removing.
+    - Alarms are removed by time. If another enabled alarm rings at the same minute
+      (one of yours, or the other group), the clock app asks which one to remove.
+    - Removing works only for alarms less than 24 hours away and with Google Clock or
+      another app supporting `DISMISS_ALARM`. Test it once on your phone.
     - Android only: iOS does not let apps create alarms in the Clock app.
 
     </details>
@@ -50,17 +67,25 @@ blueprint:
     <summary>Troubleshooting</summary>
 
     - **The run lasts a fraction of a second and no alarm is set**: no event matched.
-      Open the trace, step *Get tomorrow morning's events*, and compare the event
+      Open the trace, step *Get the morning's events*, and compare the event
       titles with the ones set in Group 1 and Group 2.
     - **Notifications arrive but no alarm appears**: check the *Alarms & reminders*
       permission of the Companion app.
     - **Duplicate alarms**: another automation is setting alarms from the same calendar.
+    - **Old alarms not removed**: check that the sync helper is set and that its value
+      changes after a run. Alarms set before turning sync on are not tracked and are
+      not removed.
+    - **Webhook does nothing**: with *local network only* on, calls through Nabu Casa or
+      a public URL are refused.
 
     </details>
 
     <details>
     <summary>Changelog</summary>
 
+    - **1.4**: Sync helper: moved or deleted events remove or update the alarms. Webhook,
+      Home Assistant event and periodic check triggers. Next morning picked from the time
+      of the run. Alarms already in the past are skipped. Calendar refreshed before reading.
     - **1.3**: Android options for the confirmation notification (channel, importance,
       icon, auto-dismiss, ...) and link on tap. Alarm commands sent with high priority.
     - **1.2**: Pick the phone from your devices. The notify service is now optional.
@@ -77,15 +102,15 @@ blueprint:
     run_time:
       name: Run time
       description: >-
-        Evening time when the automation checks tomorrow's calendar.
-        Keep it before midnight, otherwise it looks at the day after tomorrow.
+        Evening time when the automation checks the next morning's calendar.
+        After 12:00 it reads tomorrow, before 12:00 it reads today.
       default: "23:00:00"
       selector:
         time: {}
 
     calendar:
       name: Calendar
-      description: Calendar that holds your wake-up events. Only events between 00:00 and 12:00 of the next day are read.
+      description: Calendar that holds your wake-up events. Only events between 00:00 and 12:00 of the next morning are read.
       selector:
         entity:
           filter:
@@ -354,11 +379,116 @@ blueprint:
           selector:
             boolean: {}
 
-mode: single
+    sync:
+      name: Sync and triggers
+      icon: mdi:sync
+      description: >-
+        Run the automation again when the calendar changes, so moved or deleted
+        events update the alarms on the phone. Removing alarms needs the sync helper.
+      collapsed: true
+      input:
+        state_helper:
+          name: Sync helper
+          description: >-
+            A Text helper (`input_text`, max length 255) where the automation remembers
+            which alarms it set. With it, each run only changes what is different from
+            the last run: alarms of a moved or deleted event are removed from the phone
+            with `DISMISS_ALARM`, searched by their time. Leave empty to only add alarms,
+            as in version 1.3.
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: input_text
+
+        webhook_id:
+          name: Webhook ID
+          description: >-
+            Run the automation by calling `/api/webhook/<ID>` (POST or PUT), e.g. from
+            the AI assistant or bot that edits your calendar. Use a long random string:
+            anyone who knows it can start a sync. Leave empty to disable the webhook.
+            Optional JSON body or query parameter: `day` = `today`, `tomorrow` or `auto`.
+          default: ""
+          selector:
+            text:
+
+        webhook_local_only:
+          name: Webhook from local network only
+          description: Accept webhook calls only from your home network. Turn off to call it through Nabu Casa or a public URL.
+          default: true
+          selector:
+            boolean: {}
+
+        sync_event:
+          name: Home Assistant event
+          description: >-
+            Event type that runs the automation, e.g. from a script with the
+            *Fire event* action. Optional event data: `day` = `today`, `tomorrow` or `auto`.
+          default: "calendar_alarm_sync"
+          selector:
+            text:
+
+        periodic_enabled:
+          name: Periodic check
+          description: >-
+            Check the calendar again at a fixed interval, from the run time until 12:00.
+            Works only with the sync helper set.
+          default: false
+          selector:
+            boolean: {}
+
+        periodic_interval:
+          name: Check every
+          default: "/15"
+          selector:
+            select:
+              options:
+                - label: 10 minutes
+                  value: "/10"
+                - label: 15 minutes
+                  value: "/15"
+                - label: 30 minutes
+                  value: "/30"
+                - label: 1 hour
+                  value: "0"
+
+        removed_title:
+          name: Removal notification title
+          description: Sent instead of the confirmation when alarms were only removed. Uses the confirmation and Android options above.
+          default: "Alarms Removed"
+          selector:
+            text:
+              multiline: false
+
+        removed_message:
+          name: Removal notification message
+          default: "The calendar event is gone, so its alarms were removed."
+          selector:
+            text:
+              multiline: true
+
+# Queued so a webhook arriving during a run is handled right after it
+mode: queued
+max: 5
 
 triggers:
   - trigger: time
+    id: scheduled
     at: !input run_time
+  - trigger: webhook
+    id: webhook
+    webhook_id: !input webhook_id
+    local_only: !input webhook_local_only
+    allowed_methods:
+      - POST
+      - PUT
+  - trigger: event
+    id: event
+    event_type: !input sync_event
+  - trigger: time_pattern
+    id: periodic
+    enabled: !input periodic_enabled
+    minutes: !input periodic_interval
 
 actions:
   - alias: Load inputs
@@ -387,6 +517,8 @@ actions:
       tag: !input tag
       group: !input group
       car_ui: !input car_ui
+      state_helper: !input state_helper
+      sync_enabled: "{{ state_helper | length > 0 }}"
       input_device: !input notify_device
       input_service: !input notify_service
       notify_service: >-
@@ -405,100 +537,176 @@ actions:
       - stop: Set the Android phone or the notify service in the blueprint settings.
         error: true
 
-  - alias: Get tomorrow morning's events
+  - alias: Skip periodic checks outside the alarm window
+    if:
+      - alias: Started by the periodic check
+        condition: trigger
+        id: periodic
+      - condition: or
+        conditions:
+          - alias: No sync helper
+            condition: template
+            value_template: "{{ not sync_enabled }}"
+          - alias: Outside run time to 12:00
+            condition: not
+            conditions:
+              - condition: time
+                after: !input run_time
+                before: "12:00:00"
+    then:
+      - stop: Periodic checks run only with the sync helper set, from the run time until 12:00.
+
+  - alias: Pick the morning to read
+    variables:
+      # Webhook JSON body or query, or event data, may force the day
+      requested_day: >-
+        {% set ns = namespace(day='') %}
+        {% if trigger.id == 'webhook' %}
+          {% if trigger.json is defined and trigger.json is mapping %}
+            {% set ns.day = trigger.json.get('day', '') %}
+          {% endif %}
+          {% if not ns.day and trigger.query is defined %}
+            {% set ns.day = trigger.query.get('day', '') %}
+          {% endif %}
+        {% elif trigger.id == 'event' %}
+          {% set ns.day = trigger.event.data.get('day', '') %}
+        {% endif %}
+        {{ ns.day | string | lower | trim }}
+      # Before 12:00 the next morning is today, after 12:00 it is tomorrow
+      day_offset: >-
+        {% if requested_day == 'today' %}0
+        {% elif requested_day == 'tomorrow' %}1
+        {% else %}{{ 0 if now().hour < 12 else 1 }}
+        {% endif %}
+
+  # Cloud calendars refresh every few minutes: without this, a sync started right
+  # after editing the calendar could still read the old event
+  - alias: Refresh the calendar
+    action: homeassistant.update_entity
+    target:
+      entity_id: "{{ cal_entity }}"
+    continue_on_error: true
+
+  - alias: Get the morning's events
     action: calendar.get_events
     target:
       entity_id: "{{ cal_entity }}"
     data:
-      start_date_time: "{{ today_at('00:00') + timedelta(days=1) }}"
-      end_date_time: "{{ today_at('12:00') + timedelta(days=1) }}"
-    response_variable: tomorrow_events
+      start_date_time: "{{ today_at('00:00') + timedelta(days=day_offset | int) }}"
+      end_date_time: "{{ today_at('12:00') + timedelta(days=day_offset | int) }}"
+    response_variable: morning_events
 
-  - alias: Find matching events
+  - alias: Plan the alarm changes
     variables:
-      g1_start_str: >
-        {% set ns = namespace(start=none) %}
-        {% for ev in tomorrow_events[cal_entity].events %}
-          {% if ev.summary == g1_title and ns.start == none %}
-            {% set ns.start = ev.start %}
-          {% endif %}
-        {% endfor %}
-        {{ ns.start }}
-      g2_start_str: >
-        {% set ns = namespace(start=none) %}
-        {% for ev in tomorrow_events[cal_entity].events %}
-          {% if ev.summary == g2_title and ns.start == none %}
-            {% set ns.start = ev.start %}
-          {% endif %}
-        {% endfor %}
-        {{ ns.start }}
-
-  - alias: Stop if no matching event was found
-    condition: template
-    value_template: >-
-      {{ g1_start_str not in ['None', '', none] or g2_start_str not in ['None', '', none] }}
-
-  - alias: Group 1 alarms
-    if:
-      - alias: Group 1 event found
-        condition: template
-        value_template: "{{ g1_start_str not in ['None', '', none] }}"
-    then:
-      - alias: Set Group 1 alarms
-        repeat:
+      groups:
+        - key: g1
+          title: "{{ g1_title }}"
           count: "{{ g1_count | int }}"
-          sequence:
-            - alias: Send SET_ALARM intent
-              action: "{{ notify_service }}"
-              data:
-                message: command_activity
-                data:
-                  # High priority and no TTL so a sleeping phone gets the command right away
-                  priority: high
-                  ttl: 0
-                  intent_action: android.intent.action.SET_ALARM
-                  # Computed inline: datetimes stored in variables become strings
-                  intent_extras: >-
-                    {% set offset_min = (g1_count | int - repeat.index) * (g1_interval | int) %}
-                    {% set alarm_time = as_datetime(g1_start_str).astimezone() - timedelta(minutes=offset_min) %}
-                    android.intent.extra.alarm.HOUR:{{ alarm_time.hour }},android.intent.extra.alarm.MINUTES:{{ alarm_time.minute }},android.intent.extra.alarm.SKIP_UI:true,android.intent.extra.alarm.MESSAGE:{{ g1_label }}
-            - alias: Wait before the next alarm
-              delay:
-                seconds: 2
-
-  - alias: Group 2 alarms
-    if:
-      - alias: Group 2 event found
-        condition: template
-        value_template: "{{ g2_start_str not in ['None', '', none] }}"
-    then:
-      - alias: Set Group 2 alarms
-        repeat:
+          interval: "{{ g1_interval | int }}"
+          label: "{{ g1_label }}"
+        - key: g2
+          title: "{{ g2_title }}"
           count: "{{ g2_count | int }}"
-          sequence:
-            - alias: Send SET_ALARM intent
-              action: "{{ notify_service }}"
-              data:
-                message: command_activity
-                data:
-                  # High priority and no TTL so a sleeping phone gets the command right away
-                  priority: high
-                  ttl: 0
-                  intent_action: android.intent.action.SET_ALARM
-                  # Computed inline: datetimes stored in variables become strings
-                  intent_extras: >-
-                    {% set offset_min = (g2_count | int - repeat.index) * (g2_interval | int) %}
-                    {% set alarm_time = as_datetime(g2_start_str).astimezone() - timedelta(minutes=offset_min) %}
-                    android.intent.extra.alarm.HOUR:{{ alarm_time.hour }},android.intent.extra.alarm.MINUTES:{{ alarm_time.minute }},android.intent.extra.alarm.SKIP_UI:true,android.intent.extra.alarm.MESSAGE:{{ g2_label }}
-            - alias: Wait before the next alarm
-              delay:
-                seconds: 2
+          interval: "{{ g2_interval | int }}"
+          label: "{{ g2_label }}"
+      # Start of the first event whose title matches, empty if none
+      starts: >-
+        {% set ev = morning_events[cal_entity].events %}
+        {% set m1 = ev | selectattr('summary', 'eq', g1_title) | map(attribute='start') | list %}
+        {% set m2 = ev | selectattr('summary', 'eq', g2_title) | map(attribute='start') | list %}
+        {{ {'g1': m1[0] if m1 else '', 'g2': m2[0] if m2 else ''} }}
+      # Helper format: g1 start|g1 count|g2 start|g2 count
+      stored_state: "{{ states(state_helper) if sync_enabled else '' }}"
+      stored: >-
+        {% set p = stored_state.split('|') %}
+        {% if p | count == 4 %}
+          {{ {'g1': {'start': p[0], 'count': p[1] | int(0)}, 'g2': {'start': p[2], 'count': p[3] | int(0)}} }}
+        {% else %}
+          {{ {'g1': {'start': '', 'count': 0}, 'g2': {'start': '', 'count': 0}} }}
+        {% endif %}
+      new_state: >-
+        {{ starts.g1 }}|{{ g1_count | int if starts.g1 else 0 }}|{{ starts.g2 }}|{{ g2_count | int if starts.g2 else 0 }}
+      # Without the helper every run sets the alarms again (the clock app ignores
+      # duplicates). With it, a group changes only when its event moved, appeared or
+      # disappeared: old alarms that are no longer needed are removed first, then the
+      # missing ones are set. Alarms already in the past are skipped.
+      commands: >-
+        {% set ns = namespace(dismiss=[], set=[]) %}
+        {% for g in groups %}
+          {% set new_start = starts[g.key] %}
+          {% set new_count = g.count | int if new_start else 0 %}
+          {% set old = stored[g.key] %}
+          {% if not sync_enabled or new_start != old.start or new_count != old.count %}
+            {% set gs = namespace(old=[], new=[]) %}
+            {% if sync_enabled and old.start %}
+              {% for i in range(1, old.count + 1) %}
+                {% set t = as_datetime(old.start).astimezone() - timedelta(minutes=(old.count - i) * (g.interval | int)) %}
+                {% if t > now() %}
+                  {% set gs.old = gs.old + [{'type': 'dismiss', 'hour': t.hour, 'minute': t.minute,
+                       'label': g.label, 'at': t.strftime('%H:%M')}] %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+            {% for i in range(1, new_count + 1) %}
+              {% set t = as_datetime(new_start).astimezone() - timedelta(minutes=(new_count - i) * (g.interval | int)) %}
+              {% if t > now() %}
+                {% set gs.new = gs.new + [{'type': 'set', 'hour': t.hour, 'minute': t.minute,
+                     'label': g.label, 'at': t.strftime('%H:%M')}] %}
+              {% endif %}
+            {% endfor %}
+            {% set old_times = gs.old | map(attribute='at') | list %}
+            {% set new_times = gs.new | map(attribute='at') | list %}
+            {% set ns.dismiss = ns.dismiss + (gs.old | rejectattr('at', 'in', new_times) | list) %}
+            {% set ns.set = ns.set + (gs.new | rejectattr('at', 'in', old_times) | list) %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.dismiss + ns.set }}
+      set_count: "{{ commands | selectattr('type', 'eq', 'set') | list | count }}"
+      dismiss_count: "{{ commands | selectattr('type', 'eq', 'dismiss') | list | count }}"
+
+  - alias: Send the alarm commands
+    repeat:
+      for_each: "{{ commands }}"
+      sequence:
+        - alias: Send SET_ALARM or DISMISS_ALARM intent
+          action: "{{ notify_service }}"
+          data:
+            message: command_activity
+            data:
+              # High priority and no TTL so a sleeping phone gets the command right away
+              priority: high
+              ttl: 0
+              intent_action: >-
+                android.intent.action.{{ 'SET_ALARM' if repeat.item.type == 'set' else 'DISMISS_ALARM' }}
+              # Alarms to remove are searched by exact time: a label search matches
+              # every alarm whose label contains it, and the clock app then asks which one
+              intent_extras: >-
+                {%- if repeat.item.type == 'set' -%}
+                android.intent.extra.alarm.HOUR:{{ repeat.item.hour }},android.intent.extra.alarm.MINUTES:{{ repeat.item.minute }},android.intent.extra.alarm.SKIP_UI:true,android.intent.extra.alarm.MESSAGE:{{ repeat.item.label }}
+                {%- else -%}
+                android.intent.extra.alarm.SEARCH_MODE:android.time,android.intent.extra.alarm.HOUR:{{ repeat.item.hour }},android.intent.extra.alarm.MINUTES:{{ repeat.item.minute }}
+                {%- endif -%}
+        - alias: Wait before the next command
+          delay:
+            seconds: 2
+
+  - alias: Remember the alarms set
+    if:
+      - alias: Sync helper set and alarms changed
+        condition: template
+        value_template: "{{ sync_enabled and new_state != stored_state }}"
+    then:
+      - action: input_text.set_value
+        target:
+          entity_id: "{{ state_helper }}"
+        data:
+          value: "{{ new_state }}"
 
   - alias: Confirmation notification
     if:
-      - alias: Confirmation enabled
+      - alias: Confirmation enabled and alarms changed
         condition: template
-        value_template: "{{ confirmation_enabled }}"
+        value_template: "{{ confirmation_enabled and (set_count | int > 0 or dismiss_count | int > 0) }}"
     then:
       - alias: Build confirmation payload
         variables:
@@ -521,9 +729,13 @@ actions:
             {% if group | trim %}{% set d = dict(d, group=group | trim) %}{% endif %}
             {% if car_ui %}{% set d = dict(d, car_ui=true) %}{% endif %}
             {{ d }}
+          set_title: !input confirmation_title
+          set_message: !input confirmation_message
+          removed_title: !input removed_title
+          removed_message: !input removed_message
       - alias: Send confirmation
         action: "{{ notify_service }}"
         data:
-          title: !input confirmation_title
-          message: !input confirmation_message
+          title: "{{ set_title if set_count | int > 0 else removed_title }}"
+          message: "{{ set_message if set_count | int > 0 else removed_message }}"
           data: "{{ confirmation_payload }}"

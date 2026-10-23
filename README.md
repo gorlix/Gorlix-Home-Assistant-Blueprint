@@ -31,6 +31,8 @@ Because the calendar is the source of truth, **anything that can write to a cale
 - **Two independent groups.** For example, `Alarm 1` for a normal morning and `Alarm 2` for mornings you really can't miss. Each group has its own event title, alarm count, interval and label on the phone.
 - **Confirmation notification.** After the alarms are set, you get a notification, so you know before going to sleep that everything is in place. You can change its title, text, link, channel and other Android options, or turn it off.
 - **Reliable delivery.** Alarm commands are sent with high priority, so a phone in Doze mode gets them right away.
+- **Sync with the calendar.** With a Text helper set, moving or deleting an event updates the alarms on the phone: old alarms are removed with `DISMISS_ALARM`, new ones are set, and nothing is sent if nothing changed.
+- **Run on demand.** Besides the evening run, start a sync from a webhook, a Home Assistant event or a periodic check.
 
 ### Requirements
 
@@ -44,14 +46,15 @@ Because the calendar is the source of truth, **anything that can write to a cale
 2. Create an automation from it.
 3. Choose your calendar and your Android phone. Set the notify service only if its name differs from the device name.
 4. Adjust the event titles, alarm counts and intervals to your liking.
+5. Optional, to remove alarms of moved or deleted events: create a **Text** helper (Settings → Devices & services → Helpers → Text, max length 255) and pick it as *Sync helper*. Then set a webhook ID or turn on the periodic check, so the automation runs again after the calendar changes.
 
 ### Configuration
 
-Inputs are grouped into collapsible sections: general settings, Group 1, Group 2 and Confirmation notification.
+Inputs are grouped into collapsible sections: general settings, Group 1, Group 2, Confirmation notification, Android notification options and Sync and triggers.
 
 | Input | Default | Description |
 |---|---|---|
-| Run time | `23:00` | When the automation checks the calendar. Keep it before midnight. |
+| Run time | `23:00` | When the automation checks the calendar. After 12:00 it reads tomorrow, before 12:00 today. |
 | Calendar | — | Calendar entity to scan. |
 | Android phone | — | Phone with the Companion app, picked from your devices. |
 | Notify service (optional) | — | Only if your service name differs from the device name, for example `notify.mobile_app_my_phone`. |
@@ -86,20 +89,52 @@ The **Android notification options** section controls how the confirmation is de
 | Group | — | Stack notifications with the same group together. |
 | Show on Android Auto | `off` | Also show the notification in Android Auto. |
 
+The **Sync and triggers** section:
+
+| Input | Default | Description |
+|---|---|---|
+| Sync helper | — | `input_text` helper where the automation remembers the alarms it set. Needed to remove alarms. |
+| Webhook ID | — | Runs a sync on `POST /api/webhook/<ID>`. Use a long random string. Empty disables it. |
+| Webhook from local network only | `on` | Turn off to call the webhook through Nabu Casa or a public URL. |
+| Home Assistant event | `calendar_alarm_sync` | Event type that runs a sync, e.g. fired from a script. |
+| Periodic check | `off` | Check the calendar again from the run time until 12:00. Needs the sync helper. |
+| Check every | `15 minutes` | 10, 15, 30 minutes or 1 hour. |
+| Removal notification title | `Alarms Removed` | Sent instead of the confirmation when alarms were only removed. |
+| Removal notification message | `The calendar event is gone, so its alarms were removed.` | Text of the removal notification. |
+
+A webhook call or event can pick the morning with `day`: `today`, `tomorrow` or `auto` (default: today before 12:00, tomorrow after). For example:
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"day": "tomorrow"}' \
+  http://homeassistant.local:8123/api/webhook/<ID>
+```
+
+```yaml
+action: event.fire
+data:
+  event_type: calendar_alarm_sync
+  event_data:
+    day: today
+```
+
 ### How it works
 
-1. At the run time you set, the automation calls `calendar.get_events` for the next morning, **00:00 to 12:00**.
+1. At the run time you set, or on a webhook, event or periodic check, the automation refreshes the calendar with `homeassistant.update_entity` and calls `calendar.get_events` for the next morning, **00:00 to 12:00**. The refresh matters for cloud calendars like Google, which otherwise update every few minutes.
 2. For each group, it looks for the first event whose title **exactly** matches the configured one.
 3. It works out the alarm times backwards from the event start.
 4. It sends one `command_activity` notification per alarm with the `android.intent.action.SET_ALARM` intent, waiting 2 seconds between calls.
 5. If no matching event is found, it does nothing. No event means no alarm, and you can sleep in.
+6. With the sync helper set, it stores the event start and alarm count of each group. On the next run it compares them with the calendar: alarms no longer needed get an `android.intent.action.DISMISS_ALARM` intent searched by exact time (`SEARCH_MODE: android.time`), missing ones get `SET_ALARM`. Alarms that stay the same are left alone, and alarms already in the past are skipped. Searching by label would not work: the clock app matches every alarm whose label contains the text and then asks which one to remove.
 
 ### Good to know
 
 - **Title matching is exact and case-sensitive.** `Alarm 1` and `alarm 1` are different titles.
-- **Alarms are set once, in the evening.** If you delete or move the event afterwards, the alarms already on your phone stay where they are.
+- **Without the sync helper, alarms are only added.** If you delete or move the event afterwards, the alarms already on your phone stay where they are.
+- **Home Assistant has no "event changed" trigger.** To react to calendar edits, call the webhook after editing the calendar, or turn on the periodic check.
+- **Google Clock deletes removed alarms.** Other clock apps may only switch them off, or open for a moment while removing.
+- **Alarms are removed by time.** If another enabled alarm rings at the same minute, one of yours or one from the other group, the clock app asks which one to remove.
+- **Removing needs a clock app that supports `DISMISS_ALARM`,** like Google Clock, and works only for alarms less than 24 hours away. Test it once on your phone.
 - **Only the first matching event per group is used.**
-- **Keep the run time before midnight.** The search window always targets "tomorrow".
 - **Android only.** iOS doesn't let apps create alarms in the Clock app.
 
 ---
